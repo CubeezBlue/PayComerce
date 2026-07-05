@@ -13,6 +13,11 @@ export async function getRequestStoreDb() {
   return getStoreDb(await getRequestSlug());
 }
 
+// Prefijo de ruta del comercio actual, ej "/t/mi-negocio". Para armar links.
+export async function getRequestBase(): Promise<string> {
+  return `/t/${await getRequestSlug()}`;
+}
+
 // Igual pero desde un Request (para route handlers /api/*).
 export function slugFromReq(req: { headers: { get(name: string): string | null } }): string {
   const s = req.headers.get("x-store-slug") || "";

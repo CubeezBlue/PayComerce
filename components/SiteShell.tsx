@@ -42,10 +42,12 @@ function Overlays({ settings, branches }: { settings: Settings; branches: Branch
 export default function SiteShell({
   settings,
   branches,
+  base = "",
   children,
 }: {
   settings: Settings;
   branches: Branch[];
+  base?: string;
   children: React.ReactNode;
 }) {
   const storeName = settings.store_name || "PayComerce";
@@ -56,16 +58,16 @@ export default function SiteShell({
   return (
     <CartProvider week={week}>
       <div style={{ ...vars, background: "var(--c-bg)", color: "var(--c-text)" }} className="flex min-h-screen flex-col">
-        <Header storeName={storeName} logoUrl={settings.logo_url} branches={branches} />
+        <Header storeName={storeName} logoUrl={settings.logo_url} branches={branches} base={base} />
         <main className="flex-1">{children}</main>
-        <Footer storeName={storeName} />
+        <Footer storeName={storeName} base={base} />
         <Overlays settings={settings} branches={branches} />
       </div>
     </CartProvider>
   );
 }
 
-function Footer({ storeName }: { storeName: string }) {
+function Footer({ storeName, base }: { storeName: string; base: string }) {
   return (
     <footer
       className="border-t border-black/5 py-8 text-center text-sm"
@@ -73,7 +75,7 @@ function Footer({ storeName }: { storeName: string }) {
     >
       <p className="font-semibold">{storeName}</p>
       <p className="mt-1 opacity-60">Hecho con PayComerce · Tu tienda online, pagos y facturación</p>
-      <a href="/admin" className="mt-2 inline-block text-xs underline opacity-50">Panel de administración</a>
+      <a href={`${base}/admin`} className="mt-2 inline-block text-xs underline opacity-50">Panel de administración</a>
     </footer>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export default function LoginForm({ storeName, firstTime }: { storeName: string; firstTime: boolean }) {
+export default function LoginForm({ storeName, firstTime, base = "" }: { storeName: string; firstTime: boolean; base?: string }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +21,7 @@ export default function LoginForm({ storeName, firstTime }: { storeName: string;
     });
     setBusy(false);
     if (!res.ok) { setError((await res.json()).error || "Error"); return; }
-    window.location.href = "/admin";
+    window.location.href = `${base}/admin`;
   }
 
   return (

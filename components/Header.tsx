@@ -6,25 +6,29 @@ import { useCart } from "./CartContext";
 import { Branch } from "@/lib/types";
 
 const NAV = [
-  { href: "/", label: "Inicio" },
-  { href: "/menu", label: "Menú" },
-  { href: "/nosotros", label: "Nosotros" },
-  { href: "/contacto", label: "Contacto" },
+  { path: "", label: "Inicio" },
+  { path: "/menu", label: "Menú" },
+  { path: "/nosotros", label: "Nosotros" },
+  { path: "/contacto", label: "Contacto" },
 ];
 
 export default function Header({
   storeName,
   logoUrl,
   branches,
+  base = "",
 }: {
   storeName: string;
   logoUrl?: string;
   branches: Branch[];
+  base?: string;
 }) {
   const { count, setCartOpen, branchId, setBranchModalOpen, storeOpen } = useCart();
   const pathname = usePathname();
   const currentBranch = branches.find((b) => b.id === branchId);
   const showBranch = branches.length > 1;
+  // El middleware reescribe /t/<slug>/menu -> /menu, así que comparamos con la ruta "limpia"
+  const clean = base && pathname.startsWith(base) ? pathname.slice(base.length) || "/" : pathname;
 
   return (
     <header
@@ -32,7 +36,7 @@ export default function Header({
       style={{ background: "color-mix(in srgb, var(--c-header) 92%, transparent)", color: "var(--c-header-text)" }}
     >
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href={base || "/"} className="flex items-center gap-2">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt={storeName} className="h-9 w-9 rounded-xl object-cover" />
@@ -49,11 +53,11 @@ export default function Header({
 
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
           {NAV.map((n) => {
-            const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+            const active = n.path === "" ? clean === "/" : clean.startsWith(n.path);
             return (
               <Link
-                key={n.href}
-                href={n.href}
+                key={n.label}
+                href={`${base}${n.path}` || "/"}
                 className={active ? "font-semibold text-[var(--accent-on-header)]" : "opacity-70 transition hover:opacity-100"}
               >
                 {n.label}
@@ -89,9 +93,9 @@ export default function Header({
       {/* Nav mobile */}
       <nav className="flex items-center justify-around border-t border-black/5 py-2 text-xs font-medium md:hidden">
         {NAV.map((n) => {
-          const active = n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+          const active = n.path === "" ? clean === "/" : clean.startsWith(n.path);
           return (
-            <Link key={n.href} href={n.href} className={active ? "text-[var(--brand)]" : "opacity-70"}>
+            <Link key={n.label} href={`${base}${n.path}` || "/"} className={active ? "text-[var(--brand)]" : "opacity-70"}>
               {n.label}
             </Link>
           );

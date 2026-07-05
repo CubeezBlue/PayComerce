@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSettings } from "@/lib/db";
 import AdminShell from "@/components/admin/AdminShell";
 import { readableOn } from "@/lib/colors";
-import { getRequestStoreDb, getRequestSlug } from "@/lib/tenant";
+import { getRequestStoreDb, getRequestSlug, getRequestBase } from "@/lib/tenant";
 import { checkSession, SESSION_COOKIE } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -11,8 +11,9 @@ export const dynamic = "force-dynamic";
 export default async function AdminRootLayout({ children }: { children: React.ReactNode }) {
   // Requiere sesión iniciada para este comercio
   const slug = await getRequestSlug();
+  const base = await getRequestBase();
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (!checkSession(slug, token)) redirect("/ingresar");
+  if (!checkSession(slug, token)) redirect(`${base}/ingresar`);
 
   const settings = getSettings(await getRequestStoreDb());
   const brand = settings.color_accent || settings.brand_color || "#EA580C";
@@ -22,7 +23,7 @@ export default async function AdminRootLayout({ children }: { children: React.Re
   };
   return (
     <div style={vars}>
-      <AdminShell settings={settings}>{children}</AdminShell>
+      <AdminShell settings={settings} base={base}>{children}</AdminShell>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getSettings, getCategories } from "@/lib/db";
-import { getRequestStoreDb } from "@/lib/tenant";
+import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +16,7 @@ function emojiFor(name: string) {
 
 export default async function HomePage() {
   const db = await getRequestStoreDb();
+  const base = await getRequestBase();
   const settings = getSettings(db);
   const categories = getCategories(db);
   const storeName = settings.store_name || "PayComerce";
@@ -48,10 +49,10 @@ export default async function HomePage() {
             {settings.hero_subtitle || "Pedí online, rápido y fácil."}
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/menu" className="rounded-full bg-white px-6 py-3 font-semibold text-neutral-900 shadow-lg transition hover:scale-105">
+            <Link href={`${base}/menu`} className="rounded-full bg-white px-6 py-3 font-semibold text-neutral-900 shadow-lg transition hover:scale-105">
               Ver menú
             </Link>
-            <Link href="/contacto" className="rounded-full border border-white/60 px-6 py-3 font-semibold text-white backdrop-blur transition hover:bg-white/15">
+            <Link href={`${base}/contacto`} className="rounded-full border border-white/60 px-6 py-3 font-semibold text-white backdrop-blur transition hover:bg-white/15">
               Cómo llegar
             </Link>
           </div>
@@ -70,14 +71,14 @@ export default async function HomePage() {
             <h2 className="text-2xl font-bold text-[var(--c-title)]">Explorá la carta</h2>
             <p className="mt-1 text-[var(--c-muted)]">Elegí una categoría y armá tu pedido.</p>
           </div>
-          <Link href="/menu" className="hidden text-sm font-semibold text-[var(--c-title)] sm:block">Ver todo →</Link>
+          <Link href={`${base}/menu`} className="hidden text-sm font-semibold text-[var(--c-title)] sm:block">Ver todo →</Link>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
           {categories.map((c) => (
             <Link
               key={c.id}
-              href="/menu"
+              href={`${base}/menu`}
               className="group flex flex-col items-center gap-3 rounded-2xl bg-[var(--c-card)] p-6 text-[var(--c-card-text)] shadow-sm ring-1 ring-black/5 transition hover:shadow-md"
             >
               <span className="grid h-16 w-16 place-items-center rounded-full bg-[var(--brand)]/10 text-3xl transition group-hover:scale-110">

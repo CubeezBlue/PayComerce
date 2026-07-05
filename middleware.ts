@@ -27,15 +27,17 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  // 2) Comercio desde ?store / cookie / subdominio
+  // 2) La raíz del dominio SIEMPRE es la landing de marketing (vende PayComerce).
+  //    Las tiendas viven en /t/<slug>. Ignora cookie a propósito.
+  if (url.pathname === "/") {
+    headers.set("x-store-slug", "");
+    return NextResponse.rewrite(new URL("/precios", url), { request: { headers } });
+  }
+
+  // 3) Comercio desde ?store / cookie / subdominio (para las páginas siguientes)
   let slug = url.searchParams.get("store") || req.cookies.get("pc_store")?.value || slugFromHost((req.headers.get("host") || "").split(":")[0]);
   if (slug === "www") slug = "";
   headers.set("x-store-slug", slug);
-
-  // 3) Raíz sin comercio -> landing de marketing (el dominio principal vende PayComerce)
-  if (url.pathname === "/" && !slug) {
-    return NextResponse.rewrite(new URL("/precios", url), { request: { headers } });
-  }
 
   return NextResponse.next({ request: { headers } });
 }

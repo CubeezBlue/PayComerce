@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { getSettings } from "@/lib/db";
 import { parseFeatures } from "@/lib/rubros";
-import { getRequestStoreDb } from "@/lib/tenant";
+import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
 export default async function NosotrosPage() {
   const settings = getSettings(await getRequestStoreDb());
+  const base = await getRequestBase();
   const storeName = settings.store_name || "PayComerce";
   const features = parseFeatures(settings.about_features);
 
@@ -25,7 +26,7 @@ export default async function NosotrosPage() {
           <span className="text-sm font-semibold uppercase tracking-wide text-[var(--c-title)]">Nuestra historia</span>
           <h1 className="mt-2 text-3xl font-bold text-[var(--c-title)]">{storeName}</h1>
           <p className="mt-4 leading-relaxed text-[var(--c-text)] opacity-90">{settings.about_text || "Contá la historia de tu negocio acá."}</p>
-          <Link href="/menu" className="mt-6 inline-block rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-[var(--brand-text)] shadow-sm transition hover:scale-105">
+          <Link href={`${base}/menu`} className="mt-6 inline-block rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-[var(--brand-text)] shadow-sm transition hover:scale-105">
             Ver el menú
           </Link>
         </div>

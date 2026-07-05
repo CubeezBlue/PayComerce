@@ -1,4 +1,5 @@
 import PagoRetorno from "@/components/PagoRetorno";
+import { getRequestBase } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +11,5 @@ export default async function PagoRetornoPage({
   const sp = await searchParams;
   const status = String(sp.status ?? sp.collection_status ?? "");
   const order = String(sp.order ?? sp.external_reference ?? "");
-  return <PagoRetorno status={status} order={order} />;
+  return <PagoRetorno status={status} order={order} base={await getRequestBase()} />;
 }

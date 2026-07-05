@@ -1,12 +1,13 @@
 import { getSettings, getBranches } from "@/lib/db";
 import SiteShell from "@/components/SiteShell";
 import { hasAddon } from "@/lib/plans";
-import { getRequestStoreDb } from "@/lib/tenant";
+import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const db = await getRequestStoreDb();
+  const base = await getRequestBase();
   const settings = getSettings(db);
   const branches = getBranches(true, db);
 
@@ -19,7 +20,7 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   publicSettings.arca_enabled = hasAddon(settings, "arca") ? "1" : "";
 
   return (
-    <SiteShell settings={publicSettings} branches={branches}>
+    <SiteShell settings={publicSettings} branches={branches} base={base}>
       {children}
     </SiteShell>
   );

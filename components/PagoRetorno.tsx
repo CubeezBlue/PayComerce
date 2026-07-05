@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useCart } from "./CartContext";
 
 // status viene de Mercado Pago: approved / pending / failure / rejected
-export default function PagoRetorno({ status, order }: { status: string; order: string }) {
+export default function PagoRetorno({ status, order, base = "" }: { status: string; order: string; base?: string }) {
   const { clear } = useCart();
   const approved = status === "approved";
   const pending = status === "pending" || status === "in_process";
@@ -28,10 +28,10 @@ export default function PagoRetorno({ status, order }: { status: string; order: 
       <p className="text-[var(--c-text)] opacity-80">{info.text}</p>
       {order && <p className="text-sm text-[var(--c-muted)]">Pedido #{order}</p>}
       <div className="mt-4 flex gap-3">
-        <Link href="/menu" className="rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-[var(--brand-text)] shadow-sm">
+        <Link href={`${base}/menu`} className="rounded-full bg-[var(--brand)] px-6 py-3 font-semibold text-[var(--brand-text)] shadow-sm">
           {approved ? "Volver al menú" : "Reintentar"}
         </Link>
-        <Link href="/" className="rounded-full border border-black/10 px-6 py-3 font-semibold">Inicio</Link>
+        <Link href={base || "/"} className="rounded-full border border-black/10 px-6 py-3 font-semibold">Inicio</Link>
       </div>
     </div>
   );

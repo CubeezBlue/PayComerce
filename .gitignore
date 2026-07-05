@@ -1,0 +1,11 @@
+node_modules/
+.next/
+out/
+
+# Datos y subidas (se generan en el servidor, no se versionan)
+data/
+public/uploads/
+
+# Entorno
+.env
+.env*.local

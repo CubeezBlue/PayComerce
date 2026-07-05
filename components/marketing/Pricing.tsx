@@ -36,7 +36,7 @@ export default function Pricing() {
             <a href="#planes" className="hover:text-[var(--pc)]">Planes</a>
             <a href="#integraciones" className="hover:text-[var(--pc)]">Integraciones</a>
             <a href="#faq" className="hover:text-[var(--pc)]">Preguntas</a>
-            <Link href="/" className="hover:text-[var(--pc)]">Ver una tienda</Link>
+            <Link href="/t/demo" className="hover:text-[var(--pc)]">Ver una tienda</Link>
           </nav>
           <Link href="/crear-tienda" className="rounded-full bg-[var(--pc)] px-4 py-2 text-sm font-semibold text-white shadow-sm">
             Crear mi tienda
@@ -62,7 +62,7 @@ export default function Pricing() {
             <Link href="/crear-tienda" className="rounded-full bg-white px-7 py-3 font-semibold text-[var(--pc)] shadow-lg transition hover:scale-105">
               Empezar gratis
             </Link>
-            <Link href="/" className="rounded-full border border-white/50 px-7 py-3 font-semibold text-white backdrop-blur transition hover:bg-white/10">
+            <Link href="/t/demo" className="rounded-full border border-white/50 px-7 py-3 font-semibold text-white backdrop-blur transition hover:bg-white/10">
               Ver una tienda de ejemplo
             </Link>
           </div>

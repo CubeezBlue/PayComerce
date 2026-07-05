@@ -35,7 +35,7 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
   }
 
   if (done) {
-    const url = `http://${done.slug}.${baseHost}`;
+    const base = `/t/${done.slug}`;
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
         <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-green-100 text-3xl">🎉</div>
@@ -43,14 +43,14 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
         <p className="mt-2 text-neutral-500">Ya podés cargar tus productos y empezar a vender.</p>
         <div className="mt-6 space-y-2 rounded-2xl bg-neutral-50 p-4 text-left text-sm ring-1 ring-black/5">
           <p><span className="text-neutral-400">Tienda:</span> <b>{done.name}</b></p>
-          <p className="break-all"><span className="text-neutral-400">Dirección:</span> <b>{done.slug}.{baseHost}</b></p>
+          <p className="break-all"><span className="text-neutral-400">Dirección:</span> <b>{baseHost}/t/{done.slug}</b></p>
         </div>
         <div className="mt-6 flex flex-col gap-2">
-          <a href={`${url}/admin`} className="rounded-full bg-[var(--pc)] px-6 py-3 font-semibold text-white shadow-sm">Ir a mi panel</a>
-          <a href={url} className="rounded-full border border-neutral-200 px-6 py-3 font-semibold text-neutral-700">Ver mi tienda</a>
+          <a href={`${base}/admin`} className="rounded-full bg-[var(--pc)] px-6 py-3 font-semibold text-white shadow-sm">Ir a mi panel</a>
+          <a href={base} className="rounded-full border border-neutral-200 px-6 py-3 font-semibold text-neutral-700">Ver mi tienda</a>
         </div>
         <p className="mt-4 text-xs text-neutral-400">
-          En local, los subdominios funcionan como <b>{done.slug}.localhost:3000</b>. En producción será tu dominio.
+          Compartí <b>{baseHost}/t/{done.slug}</b> con tus clientes. Entrás a administrar con tu contraseña.
         </p>
       </div>
     );

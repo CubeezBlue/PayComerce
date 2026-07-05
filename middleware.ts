@@ -1,30 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Detecta a qué comercio pertenece la visita, según el subdominio.
-//   kiosco.paycomerce.com  -> "kiosco"
-//   kiosco.localhost:3000  -> "kiosco"   (para pruebas locales)
-//   paycomerce.com / localhost -> ""     (sin comercio: demo/marketing)
-// También acepta ?store=slug como override para probar sin subdominios.
+// Detecta a qué comercio pertenece la visita. Soporta:
+//   1) Ruta  /t/<slug>/...        -> entra al comercio (fija cookie) y reescribe sin el prefijo
+//   2) Cookie pc_store            -> mantiene el comercio en las páginas siguientes
+//   3) ?store=slug                -> override para pruebas
+//   4) Subdominio <slug>.dominio  -> para cuando se use un VPS con wildcard
+// Vacío = sitio principal (landing de marketing).
 function slugFromHost(hostname: string): string {
   const labels = hostname.split(".");
-  if (hostname.endsWith("localhost")) {
-    return labels.length > 1 ? labels[0] : "";
-  }
-  // dominio real: sub.dominio.tld -> 3+ labels
+  if (hostname.endsWith("localhost")) return labels.length > 1 ? labels[0] : "";
   return labels.length > 2 ? labels[0] : "";
 }
 
 export function middleware(req: NextRequest) {
-  const host = (req.headers.get("host") || "").split(":")[0];
-  let slug = req.nextUrl.searchParams.get("store") || slugFromHost(host);
-  if (slug === "www") slug = "";
-
+  const url = req.nextUrl;
+  const parts = url.pathname.split("/"); // ['', 't', 'slug', 'resto...']
   const headers = new Headers(req.headers);
+
+  // 1) Entrada por /t/<slug>: fija el comercio (header + cookie) y sirve la ruta sin el prefijo
+  if (parts[1] === "t" && parts[2]) {
+    const slug = parts[2];
+    headers.set("x-store-slug", slug);
+    const rest = "/" + parts.slice(3).join("/");
+    const res = NextResponse.rewrite(new URL((rest === "/" ? "/" : rest) + url.search, url), { request: { headers } });
+    res.cookies.set("pc_store", slug, { path: "/", sameSite: "lax", maxAge: 60 * 60 * 24 * 365 });
+    return res;
+  }
+
+  // 2) Comercio desde ?store / cookie / subdominio
+  let slug = url.searchParams.get("store") || req.cookies.get("pc_store")?.value || slugFromHost((req.headers.get("host") || "").split(":")[0]);
+  if (slug === "www") slug = "";
   headers.set("x-store-slug", slug);
+
+  // 3) Raíz sin comercio -> landing de marketing (el dominio principal vende PayComerce)
+  if (url.pathname === "/" && !slug) {
+    return NextResponse.rewrite(new URL("/precios", url), { request: { headers } });
+  }
+
   return NextResponse.next({ request: { headers } });
 }
 
 export const config = {
-  // No corre en assets estáticos
   matcher: ["/((?!_next/static|_next/image|favicon.ico|uploads).*)"],
 };

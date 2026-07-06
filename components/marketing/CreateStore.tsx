@@ -17,6 +17,7 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
   const [slug, setSlug] = useState("");
   const [touchedSlug, setTouchedSlug] = useState(false);
   const [password, setPassword] = useState("");
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -26,6 +27,7 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
     setError("");
     if (!name.trim()) { setError("Poné el nombre de tu negocio"); return; }
     if (password.length < 4) { setError("La contraseña debe tener 4+ caracteres"); return; }
+    if (!accepted) { setError("Tenés que aceptar los Términos y la Política de Privacidad"); return; }
     setCreating(true);
     const res = await fetch("/api/stores", {
       method: "POST",
@@ -132,10 +134,24 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
             className="mt-1 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]"
           />
         </label>
+        <label className="flex items-start gap-2 text-sm text-neutral-600">
+          <input
+            type="checkbox"
+            checked={accepted}
+            onChange={(e) => setAccepted(e.target.checked)}
+            className="mt-0.5 h-4 w-4 accent-[var(--pc)]"
+          />
+          <span>
+            Acepto los{" "}
+            <a href="/terminos" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--pc)] underline">Términos y Condiciones</a>{" "}
+            y la{" "}
+            <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="font-medium text-[var(--pc)] underline">Política de Privacidad</a>.
+          </span>
+        </label>
         {error && <p className="text-sm text-red-500">{error}</p>}
         <button
           onClick={create}
-          disabled={creating}
+          disabled={creating || !accepted}
           className="w-full rounded-full bg-[var(--pc)] py-3 font-semibold text-white shadow-sm disabled:opacity-60"
         >
           {creating ? "Creando tu tienda…" : "Crear mi tienda y configurar"}

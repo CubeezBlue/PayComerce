@@ -228,6 +228,10 @@ export default function Pricing() {
       <footer className="border-t border-neutral-100 py-8 text-center text-sm text-neutral-400">
         <p className="font-semibold text-neutral-600">PayComerce</p>
         <p className="mt-1">Tu tienda online, pagos y facturación · Argentina</p>
+        <div className="mt-3 flex justify-center gap-4">
+          <Link href="/terminos" className="hover:text-[var(--pc)] hover:underline">Términos y Condiciones</Link>
+          <Link href="/privacidad" className="hover:text-[var(--pc)] hover:underline">Política de Privacidad</Link>
+        </div>
       </footer>
     </div>
   );

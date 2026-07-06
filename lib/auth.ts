@@ -37,6 +37,34 @@ export const SESSION_COOKIE = "pc_auth";
 // en el cliente sin arrastrar el módulo crypto). Re-exportadas por comodidad.
 export { validatePassword, isValidEmail } from "./validation";
 
+// ── Recuperación de contraseña: token firmado con vencimiento ───────────────
+const RESET_TTL_MS = 60 * 60 * 1000; // 1 hora
+
+function b64url(s: string): string {
+  return Buffer.from(s).toString("base64url");
+}
+
+// Token = base64url("slug.expira").firma  (firma HMAC del payload).
+export function makeResetToken(slug: string, nowMs: number): string {
+  const payload = `${slug}.${nowMs + RESET_TTL_MS}`;
+  const sig = crypto.createHmac("sha256", SECRET).update("reset:" + payload).digest("hex");
+  return `${b64url(payload)}.${sig}`;
+}
+
+// Devuelve el slug si el token es válido y no venció; si no, null.
+export function verifyResetToken(token: string | undefined, nowMs: number): string | null {
+  if (!token || !token.includes(".")) return null;
+  const [p, sig] = token.split(".");
+  let payload: string;
+  try { payload = Buffer.from(p, "base64url").toString(); } catch { return null; }
+  const expected = crypto.createHmac("sha256", SECRET).update("reset:" + payload).digest("hex");
+  const a = Buffer.from(sig || ""), b = Buffer.from(expected);
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+  const [slug, expStr] = payload.split(".");
+  if (!slug || !expStr || Number(expStr) < nowMs) return null;
+  return slug;
+}
+
 // ── Panel de dueño (super-admin de PayComerce) ──────────────────────────────
 // Contraseña única del operador de la plataforma (no de un comercio).
 export const OWNER_COOKIE = "pc_owner";

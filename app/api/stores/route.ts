@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listStores, createStore, storeExists, isValidSlug } from "@/lib/db";
+import { listStores, createStore, storeExists, isValidSlug, emailExists } from "@/lib/db";
 import { hashPassword, sessionToken, SESSION_COOKIE, validatePassword, isValidEmail } from "@/lib/auth";
 import { PLANS } from "@/lib/plans";
 
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
 
   if (!name) return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 });
   if (!isValidEmail(email)) return NextResponse.json({ error: "Ingresá un email válido" }, { status: 400 });
+  if (emailExists(email)) return NextResponse.json({ error: "Ya existe una cuenta con ese email" }, { status: 409 });
   const pwErr = validatePassword(password);
   if (pwErr) return NextResponse.json({ error: pwErr }, { status: 400 });
   if (!isValidSlug(slug))

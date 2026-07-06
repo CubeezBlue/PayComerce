@@ -203,6 +203,11 @@ function seedDemoCatalog(db: DB) {
 const registry = new Database(path.join(DATA_DIR, "_registry.db"));
 registry.pragma("journal_mode = WAL");
 registry.exec(`CREATE TABLE IF NOT EXISTS stores (slug TEXT PRIMARY KEY, name TEXT NOT NULL, created_at TEXT NOT NULL)`);
+// Migración: columna email en el registro (para login/recuperación por email).
+{
+  const cols = registry.prepare("PRAGMA table_info(stores)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "email")) registry.exec("ALTER TABLE stores ADD COLUMN email TEXT");
+}
 
 export type StoreInfo = { slug: string; name: string; created_at: string };
 
@@ -274,8 +279,23 @@ export function listStoresWithInfo(): StoreOverview[] {
   });
 }
 
+export function getStoreByEmail(email: string): StoreInfo | null {
+  const e = email.trim().toLowerCase();
+  if (!e) return null;
+  return (registry.prepare("SELECT slug, name, created_at FROM stores WHERE lower(email) = ?").get(e) as StoreInfo) ?? null;
+}
+
+export function emailExists(email: string): boolean {
+  return !!getStoreByEmail(email);
+}
+
+// Actualiza la contraseña (hash) de un comercio. Para recuperación de contraseña.
+export function setStorePasswordHash(slug: string, passwordHash: string): void {
+  getStoreDb(slug).prepare("INSERT INTO settings (key, value) VALUES ('admin_password_hash', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(passwordHash);
+}
+
 export function createStore(slug: string, name: string, createdAt: string, passwordHash?: string, plan?: string, email?: string): StoreInfo {
-  registry.prepare("INSERT INTO stores (slug, name, created_at) VALUES (?, ?, ?)").run(slug, name, createdAt);
+  registry.prepare("INSERT INTO stores (slug, name, created_at, email) VALUES (?, ?, ?, ?)").run(slug, name, createdAt, email ? email.trim().toLowerCase() : null);
   const db = getStoreDb(slug); // crea y siembra la base del comercio
   db.prepare("UPDATE settings SET value = ? WHERE key = 'store_name'").run(name);
   if (passwordHash) {

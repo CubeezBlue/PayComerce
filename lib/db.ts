@@ -234,12 +234,15 @@ export function getStore(slug: string): StoreInfo | null {
   return (registry.prepare("SELECT * FROM stores WHERE slug = ?").get(slug) as StoreInfo) ?? null;
 }
 
-export function createStore(slug: string, name: string, createdAt: string, passwordHash?: string): StoreInfo {
+export function createStore(slug: string, name: string, createdAt: string, passwordHash?: string, plan?: string): StoreInfo {
   registry.prepare("INSERT INTO stores (slug, name, created_at) VALUES (?, ?, ?)").run(slug, name, createdAt);
   const db = getStoreDb(slug); // crea y siembra la base del comercio
   db.prepare("UPDATE settings SET value = ? WHERE key = 'store_name'").run(name);
   if (passwordHash) {
     db.prepare("INSERT INTO settings (key, value) VALUES ('admin_password_hash', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(passwordHash);
+  }
+  if (plan) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('plan', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(plan);
   }
   return { slug, name, created_at: createdAt };
 }

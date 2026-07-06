@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { PLANS, PLAN_ORDER, ADDONS } from "@/lib/plans";
+import { formatPrice } from "@/lib/format";
 
 function slugify(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -9,13 +11,14 @@ function slugify(s: string) {
 }
 
 export default function CreateStore({ baseHost }: { baseHost: string }) {
+  const [step, setStep] = useState<"plan" | "datos">("plan");
+  const [plan, setPlan] = useState<string>("emprendedor");
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [touchedSlug, setTouchedSlug] = useState(false);
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
-  const [done, setDone] = useState<{ slug: string; name: string } | null>(null);
 
   const effSlug = touchedSlug ? slug : slugify(name);
 
@@ -27,40 +30,74 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
     const res = await fetch("/api/stores", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), slug: effSlug, password }),
+      body: JSON.stringify({ name: name.trim(), slug: effSlug, password, plan }),
     });
-    setCreating(false);
-    if (!res.ok) { setError((await res.json()).error || "No se pudo crear"); return; }
-    setDone({ slug: effSlug, name: name.trim() });
+    if (!res.ok) { setCreating(false); setError((await res.json()).error || "No se pudo crear"); return; }
+    // Quedan logueados (el API setea la cookie): los llevamos directo a configurar su tienda.
+    window.location.href = `/t/${effSlug}/admin/configuracion?bienvenida=1`;
   }
 
-  if (done) {
-    const base = `/t/${done.slug}`;
+  // Paso 1 — elegir plan
+  if (step === "plan") {
     return (
-      <div className="mx-auto max-w-md px-4 py-20 text-center">
-        <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-green-100 text-3xl">🎉</div>
-        <h1 className="mt-4 text-2xl font-bold">¡Tu tienda está lista!</h1>
-        <p className="mt-2 text-neutral-500">Ya podés cargar tus productos y empezar a vender.</p>
-        <div className="mt-6 space-y-2 rounded-2xl bg-neutral-50 p-4 text-left text-sm ring-1 ring-black/5">
-          <p><span className="text-neutral-400">Tienda:</span> <b>{done.name}</b></p>
-          <p className="break-all"><span className="text-neutral-400">Dirección:</span> <b>{baseHost}/t/{done.slug}</b></p>
+      <div className="mx-auto max-w-4xl px-4 py-14">
+        <Link href="/precios" className="text-sm text-[var(--pc)]">← Volver</Link>
+        <h1 className="mt-3 text-3xl font-black">Elegí tu plan</h1>
+        <p className="mt-2 text-neutral-500">Empezás con el plan que quieras y lo cambiás cuando necesites. Sin permanencia.</p>
+
+        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+          {PLAN_ORDER.map((id) => {
+            const p = PLANS[id];
+            const active = plan === id;
+            const popular = id === "profesional";
+            return (
+              <button
+                key={id}
+                onClick={() => setPlan(id)}
+                className={`relative flex flex-col rounded-2xl border-2 p-5 text-left transition ${
+                  active ? "border-[var(--pc)] bg-[var(--pc)]/5 shadow-md" : "border-neutral-200 bg-white hover:border-neutral-300"
+                }`}
+              >
+                {popular && (
+                  <span className="absolute -top-3 left-5 rounded-full bg-[var(--pc)] px-3 py-0.5 text-xs font-semibold text-white">Más elegido</span>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="font-bold">{p.name}</span>
+                  <span className={`grid h-5 w-5 place-items-center rounded-full border-2 ${active ? "border-[var(--pc)] bg-[var(--pc)] text-white" : "border-neutral-300"}`}>
+                    {active && <span className="text-[11px]">✓</span>}
+                  </span>
+                </div>
+                <span className="mt-1 text-2xl font-black">{formatPrice(p.price)}<span className="text-sm font-normal text-neutral-400">/mes</span></span>
+                <span className="mt-1 text-xs text-neutral-500">{p.tagline}</span>
+                <ul className="mt-3 space-y-1 text-sm text-neutral-600">
+                  <li>✓ {p.productLimit ? `Hasta ${p.productLimit} productos` : "Productos ilimitados"}</li>
+                  {p.includedAddons.map((k) => (
+                    <li key={k} className="font-medium text-green-700">★ {ADDONS.find((a) => a.key === k)?.name} incluido</li>
+                  ))}
+                </ul>
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-6 flex flex-col gap-2">
-          <a href={`${base}/admin`} className="rounded-full bg-[var(--pc)] px-6 py-3 font-semibold text-white shadow-sm">Ir a mi panel</a>
-          <a href={base} className="rounded-full border border-neutral-200 px-6 py-3 font-semibold text-neutral-700">Ver mi tienda</a>
+
+        <div className="mt-8 flex items-center justify-between">
+          <p className="text-xs text-neutral-400">Podés probar con el plan Emprendedor y subir cuando vendas más.</p>
+          <button onClick={() => setStep("datos")} className="rounded-full bg-[var(--pc)] px-8 py-3 font-semibold text-white shadow-sm">
+            Continuar →
+          </button>
         </div>
-        <p className="mt-4 text-xs text-neutral-400">
-          Compartí <b>{baseHost}/t/{done.slug}</b> con tus clientes. Entrás a administrar con tu contraseña.
-        </p>
       </div>
     );
   }
 
+  // Paso 2 — datos de la tienda
   return (
     <div className="mx-auto max-w-md px-4 py-16">
-      <Link href="/precios" className="text-sm text-[var(--pc)]">← Volver</Link>
+      <button onClick={() => setStep("plan")} className="text-sm text-[var(--pc)]">← Cambiar plan</button>
       <h1 className="mt-3 text-3xl font-black">Creá tu tienda</h1>
-      <p className="mt-2 text-neutral-500">En un minuto tenés tu tienda online lista para vender.</p>
+      <p className="mt-2 text-neutral-500">
+        Plan <b>{PLANS[plan as keyof typeof PLANS].name}</b> · {formatPrice(PLANS[plan as keyof typeof PLANS].price)}/mes. En un minuto la tenés lista.
+      </p>
 
       <div className="mt-8 space-y-4">
         <label className="block">
@@ -69,19 +106,20 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ej: Pizzería Don José"
+            autoFocus
             className="mt-1 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]"
           />
         </label>
         <label className="block">
           <span className="text-sm font-medium text-neutral-700">Dirección de tu tienda</span>
           <div className="mt-1 flex items-center overflow-hidden rounded-xl border border-neutral-200 focus-within:border-[var(--pc)]">
+            <span className="shrink-0 bg-neutral-100 px-3 py-3 text-sm text-neutral-500">{baseHost}/t/</span>
             <input
               value={effSlug}
               onChange={(e) => { setTouchedSlug(true); setSlug(slugify(e.target.value)); }}
               placeholder="pizzeria-don-jose"
-              className="min-w-0 flex-1 px-4 py-3 outline-none"
+              className="min-w-0 flex-1 px-3 py-3 outline-none"
             />
-            <span className="shrink-0 bg-neutral-100 px-3 py-3 text-sm text-neutral-500">.{baseHost}</span>
           </div>
         </label>
         <label className="block">
@@ -100,9 +138,9 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
           disabled={creating}
           className="w-full rounded-full bg-[var(--pc)] py-3 font-semibold text-white shadow-sm disabled:opacity-60"
         >
-          {creating ? "Creando…" : "Crear mi tienda gratis"}
+          {creating ? "Creando tu tienda…" : "Crear mi tienda y configurar"}
         </button>
-        <p className="text-center text-xs text-neutral-400">Empezás en el plan Emprendedor. Cambiás cuando quieras.</p>
+        <p className="text-center text-xs text-neutral-400">Al crearla entrás directo a configurar tu logo, colores y horarios.</p>
       </div>
     </div>
   );

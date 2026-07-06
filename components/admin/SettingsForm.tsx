@@ -25,7 +25,7 @@ const FIELDS: { key: string; label: string; type?: string; hint?: string }[] = [
   { key: "delivery_cost", label: "Costo de envío", type: "number" },
 ];
 
-export default function SettingsForm({ initial, base = "" }: { initial: Settings; base?: string }) {
+export default function SettingsForm({ initial, base = "", welcome = false }: { initial: Settings; base?: string; welcome?: boolean }) {
   // Solo mostramos la configuración de una integración si está activa (contratada
   // en "Mi plan" o incluida en el plan). Si no, ni aparece hasta que la habiliten.
   const mpActive = hasAddon(initial, "mp");
@@ -88,6 +88,25 @@ export default function SettingsForm({ initial, base = "" }: { initial: Settings
         <h1 className="text-2xl font-bold">Configuración</h1>
         <p className="text-neutral-500">Marca, contacto y opciones de la tienda.</p>
       </div>
+
+      {welcome && (
+        <div className="rounded-2xl border border-[var(--brand)]/20 bg-[var(--brand)]/5 p-5">
+          <p className="font-bold">🎉 ¡Bienvenido a PayComerce!</p>
+          <p className="mt-1 text-sm text-neutral-600">
+            Tu tienda ya existe. Configurala en 4 pasos, todo en esta página:
+          </p>
+          <ol className="mt-3 space-y-1 text-sm text-neutral-700">
+            <li>1️⃣ Elegí tu <b>rubro</b> (genera los textos automáticamente).</li>
+            <li>2️⃣ Subí tu <b>logo</b> y elegí tu <b>paleta de colores</b>.</li>
+            <li>3️⃣ Cargá tu <b>WhatsApp</b> y datos de contacto.</li>
+            <li>4️⃣ Definí tus <b>horarios</b> de atención.</li>
+          </ol>
+          <p className="mt-3 text-sm text-neutral-600">
+            Cuando termines, tocá <b>Guardar</b> y andá a{" "}
+            <a href={`${base}/admin/productos`} className="font-semibold text-[var(--brand)] underline">cargar tus productos</a>.
+          </p>
+        </div>
+      )}
 
       {/* Rubro del negocio */}
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">

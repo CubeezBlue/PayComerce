@@ -1,16 +1,29 @@
 import Link from "next/link";
 import { getProductsWithBranches, getSettings, getBranches, getSalesStats } from "@/lib/db";
 import { formatPrice } from "@/lib/format";
-import { getRequestStoreDb } from "@/lib/tenant";
+import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
+import { DEFAULT_PALETTE, PALETTE_ROLES } from "@/lib/palettes";
+import OnboardingChecklist, { OnboardStep } from "@/components/admin/OnboardingChecklist";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
   const db = await getRequestStoreDb();
+  const base = await getRequestBase();
   const products = getProductsWithBranches(false, db);
   const branches = getBranches(false, db);
   const settings = getSettings(db);
   const currency = settings.currency || "$";
+
+  // Progreso de configuración inicial (mini tutorial)
+  const paletteChanged = PALETTE_ROLES.some((r) => (settings[r.key] || "").toLowerCase() !== (DEFAULT_PALETTE[r.key] || "").toLowerCase());
+  const onboardSteps: OnboardStep[] = [
+    { key: "logo", icon: "🎨", label: "Subí tu logo", hint: "Tu marca en el encabezado de la tienda.", done: !!settings.logo_url, href: `${base}/admin/configuracion` },
+    { key: "colors", icon: "🌈", label: "Elegí tus colores", hint: "La paleta de tu identidad.", done: paletteChanged, href: `${base}/admin/configuracion` },
+    { key: "hours", icon: "🕒", label: "Cargá tus horarios", hint: "Abierto/cerrado automático.", done: (settings.hours_json || "").includes('"open":true'), href: `${base}/admin/configuracion` },
+    { key: "whatsapp", icon: "💬", label: "Poné tu WhatsApp", hint: "Para recibir los pedidos.", done: !!settings.whatsapp_number, href: `${base}/admin/configuracion` },
+    { key: "products", icon: "📦", label: "Cargá tu primer producto", hint: "Lo que vas a vender.", done: products.length > 0, href: `${base}/admin/productos` },
+  ];
   const branchName = new Map(branches.map((b) => [b.id, b.name]));
   const sales = getSalesStats(db);
   const maxDay = Math.max(1, ...sales.last7.map((d) => d.total));
@@ -44,6 +57,8 @@ export default async function AdminDashboard() {
         <h1 className="text-2xl font-bold">Hola 👋</h1>
         <p className="text-neutral-500">Resumen de {settings.store_name || "tu tienda"}.</p>
       </div>
+
+      <OnboardingChecklist steps={onboardSteps} storeName={settings.store_name || "tu tienda"} />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stats.map((s) => (

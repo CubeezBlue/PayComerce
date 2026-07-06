@@ -280,6 +280,11 @@ export default function Checkout({ settings, branches, zones = [] }: { settings:
               {!valid && (
                 <p className="text-center text-xs text-neutral-400">Completá: {errors.join(", ")}</p>
               )}
+              <p className="text-center text-[11px] leading-snug text-neutral-400">
+                Al confirmar tu pedido aceptás los{" "}
+                <a href="/terminos" target="_blank" rel="noopener noreferrer" className="underline">Términos</a> y la{" "}
+                <a href="/privacidad" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidad</a>, y las condiciones del comercio.
+              </p>
               {stockError.length > 0 && (
                 <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
                   <p className="font-semibold">Nos quedamos sin stock</p>

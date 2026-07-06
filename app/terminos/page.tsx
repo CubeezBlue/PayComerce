@@ -66,12 +66,34 @@ export default function TerminosPage() {
       <Section n={6} title="Contenido y responsabilidad del Comercio">
         <p>
           El Comercio es el único responsable de la información publicada en su tienda: descripciones, precios,
-          stock, imágenes, condiciones de venta, envíos y de la relación con sus clientes finales, incluyendo el
-          cumplimiento de la normativa de defensa del consumidor y demás normas aplicables a su actividad.
+          stock, imágenes, condiciones de venta y de la relación con sus clientes finales. En particular, el
+          Comercio es responsable de:
+        </p>
+        <ul className="ml-5 list-disc space-y-1">
+          <li>la calidad, estado y aptitud de los productos que vende, incluyendo las normas <strong>bromatológicas</strong> y de habilitación que correspondan a su actividad;</li>
+          <li>emitir las <strong>facturas</strong> a sus clientes y cumplir sus obligaciones <strong>impositivas</strong>;</li>
+          <li>cumplir con la normativa de <strong>Defensa del Consumidor</strong> (Ley 24.240) y demás normas aplicables;</li>
+          <li>la preparación, los tiempos y la <strong>entrega</strong> de los pedidos.</li>
+        </ul>
+      </Section>
+
+      <Section n={7} title="Pedidos, entregas y rol de PayComerce">
+        <p>
+          PayComerce es un <strong>proveedor de tecnología</strong>: facilita el software para que el Comercio reciba y
+          gestione pedidos. PayComerce <strong>no vende</strong> los productos, <strong>no participa</strong> en la
+          operación de venta ni en la entrega, y por lo tanto:
+        </p>
+        <ul className="ml-5 list-disc space-y-1">
+          <li>no garantiza la entrega de los pedidos;</li>
+          <li>no es responsable por demoras, errores o incumplimientos del Comercio;</li>
+          <li>no responde por la calidad, el estado ni la aptitud de los productos.</li>
+        </ul>
+        <p>
+          Cualquier reclamo por un pedido debe dirigirse al Comercio, que es quien realiza la venta.
         </p>
       </Section>
 
-      <Section n={7} title="Disponibilidad del Servicio">
+      <Section n={8} title="Disponibilidad del Servicio">
         <p>
           Trabajamos para mantener el Servicio disponible de forma continua, pero no garantizamos que sea
           ininterrumpido o libre de errores. Podremos realizar tareas de mantenimiento, actualizaciones o mejoras
@@ -79,7 +101,7 @@ export default function TerminosPage() {
         </p>
       </Section>
 
-      <Section n={8} title="Limitación de responsabilidad">
+      <Section n={9} title="Limitación de responsabilidad">
         <p>
           En la máxima medida permitida por la ley, PayComerce no será responsable por daños indirectos, lucro
           cesante, pérdida de datos o de ventas derivados del uso o imposibilidad de uso del Servicio o de las
@@ -88,7 +110,7 @@ export default function TerminosPage() {
         </p>
       </Section>
 
-      <Section n={9} title="Baja y cancelación">
+      <Section n={10} title="Baja y cancelación">
         <p>
           El Comercio puede dar de baja su cuenta en cualquier momento. PayComerce puede suspender o cancelar cuentas
           que incumplan estos Términos. Ante la baja, el Comercio puede solicitar la exportación de su información
@@ -96,7 +118,7 @@ export default function TerminosPage() {
         </p>
       </Section>
 
-      <Section n={10} title="Propiedad intelectual">
+      <Section n={11} title="Propiedad intelectual">
         <p>
           El software, la marca y los contenidos de la plataforma PayComerce son de su titularidad. El Comercio
           conserva la titularidad sobre los contenidos que carga en su tienda y otorga a PayComerce una licencia
@@ -104,14 +126,14 @@ export default function TerminosPage() {
         </p>
       </Section>
 
-      <Section n={11} title="Modificaciones">
+      <Section n={12} title="Modificaciones">
         <p>
           Podemos actualizar estos Términos. Publicaremos la versión vigente en esta página e informaremos los cambios
           relevantes. El uso continuado del Servicio implica la aceptación de la versión actualizada.
         </p>
       </Section>
 
-      <Section n={12} title="Ley aplicable y jurisdicción">
+      <Section n={13} title="Ley aplicable y jurisdicción">
         <p>
           Estos Términos se rigen por las leyes de la República Argentina. Ante cualquier controversia, las partes se
           someten a los tribunales ordinarios competentes, sin perjuicio de los derechos que la normativa de defensa
@@ -119,7 +141,7 @@ export default function TerminosPage() {
         </p>
       </Section>
 
-      <Section n={13} title="Contacto">
+      <Section n={14} title="Contacto">
         <p>
           Ante cualquier consulta sobre estos Términos, escribinos a{" "}
           <a href="mailto:hola@paycomerce.com" className="text-[var(--pc)] hover:underline">hola@paycomerce.com</a>.

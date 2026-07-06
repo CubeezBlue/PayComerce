@@ -284,8 +284,15 @@ export function createStore(slug: string, name: string, createdAt: string, passw
   if (plan) {
     db.prepare("INSERT INTO settings (key, value) VALUES ('plan', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(plan);
   }
+  // Registro de aceptación de Términos y Política de Privacidad (prueba legal).
+  const setKey = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+  setKey.run("terms_accepted_at", createdAt);
+  setKey.run("terms_version", TERMS_VERSION);
   return { slug, name, created_at: createdAt };
 }
+
+// Versión vigente de los Términos y la Política (coincide con "última actualización").
+export const TERMS_VERSION = "2026-07-06";
 
 // Asegurar que 'demo' esté registrado (para el comercio de ejemplo existente)
 if (!storeExists("demo")) {

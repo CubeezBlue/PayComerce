@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { PLANS, PLAN_ORDER, ADDONS } from "@/lib/plans";
 import { formatPrice } from "@/lib/format";
+import { validatePassword, isValidEmail } from "@/lib/validation";
 
 function slugify(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -14,9 +15,11 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
   const [step, setStep] = useState<"plan" | "datos">("plan");
   const [plan, setPlan] = useState<string>("emprendedor");
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [slug, setSlug] = useState("");
   const [touchedSlug, setTouchedSlug] = useState(false);
   const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -26,13 +29,16 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
   async function create() {
     setError("");
     if (!name.trim()) { setError("Poné el nombre de tu negocio"); return; }
-    if (password.length < 4) { setError("La contraseña debe tener 4+ caracteres"); return; }
+    if (!isValidEmail(email)) { setError("Ingresá un email válido"); return; }
+    const pwErr = validatePassword(password);
+    if (pwErr) { setError(pwErr); return; }
+    if (password !== password2) { setError("Las contraseñas no coinciden"); return; }
     if (!accepted) { setError("Tenés que aceptar los Términos y la Política de Privacidad"); return; }
     setCreating(true);
     const res = await fetch("/api/stores", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name.trim(), slug: effSlug, password, plan }),
+      body: JSON.stringify({ name: name.trim(), email: email.trim(), slug: effSlug, password, plan }),
     });
     if (!res.ok) { setCreating(false); setError((await res.json()).error || "No se pudo crear"); return; }
     // Quedan logueados (el API setea la cookie): los llevamos directo a configurar su tienda.
@@ -113,6 +119,17 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
           />
         </label>
         <label className="block">
+          <span className="text-sm font-medium text-neutral-700">Email</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="tunegocio@email.com"
+            className="mt-1 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]"
+          />
+          <span className="mt-1 block text-xs text-neutral-400">Lo usás para ingresar y para recuperar tu cuenta.</span>
+        </label>
+        <label className="block">
           <span className="text-sm font-medium text-neutral-700">Dirección de tu tienda</span>
           <div className="mt-1 flex items-center overflow-hidden rounded-xl border border-neutral-200 focus-within:border-[var(--pc)]">
             <span className="shrink-0 bg-neutral-100 px-3 py-3 text-sm text-neutral-500">{baseHost}/t/</span>
@@ -133,6 +150,20 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
             placeholder="Para entrar a administrar tu tienda"
             className="mt-1 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]"
           />
+          <span className="mt-1 block text-xs text-neutral-400">Mínimo 8 caracteres, con una mayúscula, un número y un carácter especial.</span>
+        </label>
+        <label className="block">
+          <span className="text-sm font-medium text-neutral-700">Repetir contraseña</span>
+          <input
+            type="password"
+            value={password2}
+            onChange={(e) => setPassword2(e.target.value)}
+            placeholder="Confirmá tu contraseña"
+            className="mt-1 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]"
+          />
+          {password2 && password !== password2 && (
+            <span className="mt-1 block text-xs text-red-500">Las contraseñas no coinciden.</span>
+          )}
         </label>
         <label className="flex items-start gap-2 text-sm text-neutral-600">
           <input

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { validatePassword } from "@/lib/validation";
 
 export default function LoginForm({ storeName, firstTime, base = "" }: { storeName: string; firstTime: boolean; base?: string }) {
   const [pw, setPw] = useState("");
@@ -11,8 +12,11 @@ export default function LoginForm({ storeName, firstTime, base = "" }: { storeNa
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (firstTime && pw !== pw2) { setError("Las contraseñas no coinciden"); return; }
-    if (pw.length < 4) { setError("La contraseña debe tener 4+ caracteres"); return; }
+    if (firstTime) {
+      const err = validatePassword(pw);
+      if (err) { setError(err); return; }
+      if (pw !== pw2) { setError("Las contraseñas no coinciden"); return; }
+    } else if (!pw) { setError("Ingresá tu contraseña"); return; }
     setBusy(true);
     const res = await fetch("/api/admin/login", {
       method: "POST",

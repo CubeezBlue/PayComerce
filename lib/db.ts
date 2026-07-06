@@ -274,12 +274,17 @@ export function listStoresWithInfo(): StoreOverview[] {
   });
 }
 
-export function createStore(slug: string, name: string, createdAt: string, passwordHash?: string, plan?: string): StoreInfo {
+export function createStore(slug: string, name: string, createdAt: string, passwordHash?: string, plan?: string, email?: string): StoreInfo {
   registry.prepare("INSERT INTO stores (slug, name, created_at) VALUES (?, ?, ?)").run(slug, name, createdAt);
   const db = getStoreDb(slug); // crea y siembra la base del comercio
   db.prepare("UPDATE settings SET value = ? WHERE key = 'store_name'").run(name);
   if (passwordHash) {
     db.prepare("INSERT INTO settings (key, value) VALUES ('admin_password_hash', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(passwordHash);
+  }
+  if (email) {
+    db.prepare("INSERT INTO settings (key, value) VALUES ('admin_email', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(email);
+    // Reservado para la verificación por email (cuando se configure el envío).
+    db.prepare("INSERT INTO settings (key, value) VALUES ('email_verified', '') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
   }
   if (plan) {
     db.prepare("INSERT INTO settings (key, value) VALUES ('plan', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(plan);

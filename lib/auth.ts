@@ -33,6 +33,10 @@ export function checkSession(slug: string, token: string | undefined): boolean {
 
 export const SESSION_COOKIE = "pc_auth";
 
+// Las validaciones puras viven en lib/validation.ts (para poder usarlas también
+// en el cliente sin arrastrar el módulo crypto). Re-exportadas por comodidad.
+export { validatePassword, isValidEmail } from "./validation";
+
 // ── Panel de dueño (super-admin de PayComerce) ──────────────────────────────
 // Contraseña única del operador de la plataforma (no de un comercio).
 export const OWNER_COOKIE = "pc_owner";

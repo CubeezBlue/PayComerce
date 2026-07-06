@@ -234,6 +234,38 @@ export function getStore(slug: string): StoreInfo | null {
   return (registry.prepare("SELECT * FROM stores WHERE slug = ?").get(slug) as StoreInfo) ?? null;
 }
 
+// Para el panel de dueño: cada tienda con su plan, addons y métricas básicas.
+export type StoreOverview = StoreInfo & {
+  plan: string;
+  addons: string[];
+  products: number;
+  orders: number;
+  mpConfigured: boolean;
+};
+
+export function listStoresWithInfo(): StoreOverview[] {
+  return listStores().map((s) => {
+    try {
+      const sdb = getStoreDb(s.slug);
+      const settings = getSettings(sdb);
+      const addonKeys = ["mp", "arca", "delivery", "domain"];
+      const addons = addonKeys.filter((k) => settings[`addon_${k}`] === "1");
+      const products = (sdb.prepare("SELECT COUNT(*) c FROM products").get() as { c: number }).c;
+      const orders = (sdb.prepare("SELECT COUNT(*) c FROM orders").get() as { c: number }).c;
+      return {
+        ...s,
+        plan: settings.plan || "emprendedor",
+        addons,
+        products,
+        orders,
+        mpConfigured: !!settings.mp_access_token?.trim(),
+      };
+    } catch {
+      return { ...s, plan: "—", addons: [], products: 0, orders: 0, mpConfigured: false };
+    }
+  });
+}
+
 export function createStore(slug: string, name: string, createdAt: string, passwordHash?: string, plan?: string): StoreInfo {
   registry.prepare("INSERT INTO stores (slug, name, created_at) VALUES (?, ?, ?)").run(slug, name, createdAt);
   const db = getStoreDb(slug); // crea y siembra la base del comercio

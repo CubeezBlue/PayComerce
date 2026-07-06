@@ -32,3 +32,37 @@ export function checkSession(slug: string, token: string | undefined): boolean {
 }
 
 export const SESSION_COOKIE = "pc_auth";
+
+// ── Panel de dueño (super-admin de PayComerce) ──────────────────────────────
+// Contraseña única del operador de la plataforma (no de un comercio).
+export const OWNER_COOKIE = "pc_owner";
+
+export function ownerPassword(): string | undefined {
+  return process.env.OWNER_PASSWORD?.trim() || undefined;
+}
+
+// ¿El panel de dueño está habilitado? (requiere OWNER_PASSWORD configurada)
+export function ownerEnabled(): boolean {
+  return !!ownerPassword();
+}
+
+export function ownerPasswordOk(pw: string): boolean {
+  const expected = ownerPassword();
+  if (!expected) return false;
+  const a = Buffer.from(pw);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// Token de sesión del dueño (HMAC de la propia contraseña → cambia si se rota).
+export function ownerToken(): string {
+  return crypto.createHmac("sha256", SECRET).update("owner:" + (ownerPassword() || "")).digest("hex");
+}
+
+export function checkOwner(token: string | undefined): boolean {
+  if (!token || !ownerEnabled()) return false;
+  const expected = ownerToken();
+  const a = Buffer.from(token);
+  const b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}

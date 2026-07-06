@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createOrder, getOrders, clearFinalizedOrders, getOrderById, getSettings, saveInvoice } from "@/lib/db";
+import { createOrder, getOrders, clearFinalizedOrders, getOrderById, getSettings, saveInvoice, OutOfStockError } from "@/lib/db";
 import { createInvoiceForOrder } from "@/lib/afip";
 import { storeDbFromReq } from "@/lib/tenant";
 
@@ -23,7 +23,9 @@ export async function POST(req: NextRequest) {
   if (!b.customer_name || items.length === 0)
     return NextResponse.json({ error: "Pedido inválido" }, { status: 400 });
 
-  const id = createOrder({
+  let id: number;
+  try {
+    id = createOrder({
     code: String(b.code ?? ""),
     branch_id: b.branch_id ?? null,
     customer_name: String(b.customer_name ?? ""),
@@ -47,6 +49,11 @@ export async function POST(req: NextRequest) {
     payment_status: b.payment === "online" ? "approved" : b.payment === "transfer" ? "pending" : "offline",
     created_at: new Date().toISOString(),
   }, db);
+  } catch (e) {
+    if (e instanceof OutOfStockError)
+      return NextResponse.json({ error: "Sin stock suficiente", items: e.items }, { status: 409 });
+    throw e;
+  }
 
   // Si pidió factura, la emitimos al toque (best-effort; si falla, se puede reintentar del panel)
   let invoice = null;

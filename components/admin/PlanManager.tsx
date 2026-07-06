@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/format";
 
 const ALL_FEATURES: Feature[] = ["variants", "excel", "price_adjust", "orders_board", "dashboard_full", "branches", "reports"];
 
-export default function PlanManager({ initial }: { initial: Record<string, string> }) {
+export default function PlanManager({ initial, base = "" }: { initial: Record<string, string>; base?: string }) {
   const [plan, setPlan] = useState(initial.plan || "empresa");
   const [addons, setAddons] = useState<Record<string, boolean>>(
     Object.fromEntries(ADDONS.map((a) => [a.key, initial[`addon_${a.key}`] === "1"]))
@@ -14,13 +14,20 @@ export default function PlanManager({ initial }: { initial: Record<string, strin
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  const addonsTotal = ADDONS.filter((a) => addons[a.key]).reduce((s, a) => s + a.price, 0);
+  // Estado de credenciales cargadas (para avisar qué falta para que la integración cobre/facture de verdad).
+  const configured: Record<string, boolean> = {
+    mp: !!initial.mp_access_token?.trim(),
+    arca: !!(initial.afip_access_token?.trim() && initial.afip_cuit?.trim()),
+  };
+
+  const addonsTotal = ADDONS.filter((a) => addons[a.key] && !a.soon).reduce((s, a) => s + a.price, 0);
   const total = PLANS[plan as keyof typeof PLANS].price + addonsTotal;
 
   async function save() {
     setSaving(true);
     const body: Record<string, string> = { plan };
-    for (const a of ADDONS) body[`addon_${a.key}`] = addons[a.key] ? "1" : "";
+    // Los addons "próximamente" nunca se guardan activos.
+    for (const a of ADDONS) body[`addon_${a.key}`] = addons[a.key] && !a.soon ? "1" : "";
     await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setSaving(false);
     setSaved(true);
@@ -74,25 +81,44 @@ export default function PlanManager({ initial }: { initial: Record<string, strin
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {ADDONS.map((a) => {
             const on = addons[a.key];
+            const soon = !!a.soon;
+            const needsCreds = a.key in configured;
+            const ready = needsCreds ? configured[a.key] : true;
             return (
               <label
                 key={a.key}
-                className={`flex cursor-pointer items-start gap-3 rounded-2xl border-2 p-4 transition ${
-                  on ? "border-[var(--brand)] bg-[var(--brand)]/5" : "border-neutral-200 bg-white hover:border-neutral-300"
-                }`}
+                className={`flex items-start gap-3 rounded-2xl border-2 p-4 transition ${
+                  soon ? "cursor-not-allowed border-neutral-200 bg-neutral-50 opacity-70" : "cursor-pointer"
+                } ${on && !soon ? "border-[var(--brand)] bg-[var(--brand)]/5" : soon ? "" : "border-neutral-200 bg-white hover:border-neutral-300"}`}
               >
                 <input
                   type="checkbox"
-                  checked={on}
+                  checked={on && !soon}
+                  disabled={soon}
                   onChange={(e) => { setAddons((s) => ({ ...s, [a.key]: e.target.checked })); setSaved(false); }}
-                  className="mt-1 h-4 w-4 accent-[var(--brand)]"
+                  className="mt-1 h-4 w-4 accent-[var(--brand)] disabled:opacity-40"
                 />
                 <span className="flex-1">
                   <span className="flex items-center justify-between">
                     <span className="font-semibold">{a.icon} {a.name}</span>
-                    <span className="text-sm font-bold">+{formatPrice(a.price)}</span>
+                    {soon ? (
+                      <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-500">Próximamente</span>
+                    ) : (
+                      <span className="text-sm font-bold">+{formatPrice(a.price)}</span>
+                    )}
                   </span>
                   <span className="text-sm text-neutral-500">{a.desc}</span>
+                  {/* Aviso de qué falta para que la integración funcione de verdad */}
+                  {on && !soon && needsCreds && (
+                    ready ? (
+                      <span className="mt-1 block text-xs font-medium text-green-600">✅ Credenciales cargadas — lista para operar.</span>
+                    ) : (
+                      <span className="mt-1 block text-xs font-medium text-amber-600">
+                        ⚠️ Falta cargar tus credenciales en{" "}
+                        <a href={`${base}/admin/configuracion`} className="underline">Configuración</a>. Hasta entonces funciona en modo demo.
+                      </span>
+                    )
+                  )}
                 </span>
               </label>
             );

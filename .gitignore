@@ -9,3 +9,4 @@ public/uploads/
 # Entorno
 .env
 .env*.local
+tsconfig.tsbuildinfo

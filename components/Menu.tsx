@@ -113,7 +113,7 @@ export default function Menu({
                 qty={qtyOf(p.id)}
                 hasOptions={p.optionGroups.length > 0}
                 onCustomize={() => setCustomizing(p)}
-                onAdd={() => addSimple({ id: p.id, name: p.name, price: p.price })}
+                onAdd={() => addSimple({ id: p.id, name: p.name, price: p.price, maxStock: p.stock })}
                 onRemove={() => dec(`p${p.id}`)}
               />
             ))}

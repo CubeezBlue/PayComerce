@@ -17,6 +17,8 @@ export default function ProductCustomize({
   const { addLine, setCartOpen } = useCart();
   const [selected, setSelected] = useState<Record<number, number[]>>({}); // groupId -> optionIds
   const [qty, setQty] = useState(1);
+  const stock = product.stock; // stock de la sucursal (null = sin límite)
+  const atMax = stock !== null && qty >= stock;
 
   function toggle(groupId: number, optionId: number, max: number) {
     setSelected((s) => {
@@ -57,6 +59,7 @@ export default function ProductCustomize({
         name: product.name,
         price: unitPrice,
         options: labels.join(", "),
+        maxStock: stock,
       },
       qty
     );
@@ -120,17 +123,20 @@ export default function ProductCustomize({
             <div className="flex items-center gap-3 rounded-full bg-neutral-100 px-2 py-1">
               <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="grid h-7 w-7 place-items-center text-lg font-bold">−</button>
               <span className="min-w-4 text-center text-sm font-bold">{qty}</span>
-              <button onClick={() => setQty((q) => q + 1)} className="grid h-7 w-7 place-items-center text-lg font-bold">+</button>
+              <button onClick={() => setQty((q) => (stock !== null ? Math.min(stock, q + 1) : q + 1))} disabled={atMax} className="grid h-7 w-7 place-items-center text-lg font-bold disabled:opacity-30">+</button>
             </div>
             <button
               onClick={add}
-              disabled={!valid}
+              disabled={!valid || (stock !== null && stock <= 0)}
               className="flex-1 rounded-full bg-[var(--brand)] py-3 font-semibold text-[var(--brand-text)] shadow-sm transition active:scale-[0.98] disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500"
             >
               Agregar · {formatPrice(unitPrice * qty, currency)}
             </button>
           </div>
           {!valid && <p className="text-center text-xs text-red-500">Elegí: {missing.join(", ")}</p>}
+          {valid && atMax && stock !== null && stock > 0 && (
+            <p className="text-center text-xs text-amber-600">Stock máximo: {stock} unidades</p>
+          )}
         </footer>
       </div>
     </div>

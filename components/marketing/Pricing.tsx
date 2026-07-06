@@ -171,6 +171,7 @@ export default function Pricing() {
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold">{a.name}</h3>
+                  {a.soon && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-500">Próximamente</span>}
                 </div>
                 <p className="text-sm text-neutral-500">{a.desc}</p>
                 <p className="mt-1 text-sm font-semibold text-[var(--pc)]">+{formatPrice(a.price)}/mes</p>

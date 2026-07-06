@@ -24,7 +24,10 @@ const FIELDS: { key: string; label: string; type?: string; hint?: string }[] = [
   { key: "delivery_cost", label: "Costo de envío", type: "number" },
 ];
 
-export default function SettingsForm({ initial }: { initial: Settings }) {
+export default function SettingsForm({ initial, base = "" }: { initial: Settings; base?: string }) {
+  // ¿La integración está contratada en "Mi plan"? (para avisar si falta activarla)
+  const mpAddon = initial.addon_mp === "1";
+  const arcaAddon = initial.addon_arca === "1";
   const [values, setValues] = useState<Settings>({
     online_payment: "1",
     ...DEFAULT_PALETTE,
@@ -283,6 +286,12 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         <p className="text-sm text-neutral-500">
           Pegá tu <b>Access Token</b> para cobrar de verdad. Si lo dejás vacío, el pago online funciona en modo demo (sin cobro).
         </p>
+        {!mpAddon && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-700 ring-1 ring-amber-200">
+            ⚠️ La integración de Mercado Pago no está activada. Activala en{" "}
+            <a href={`${base}/admin/plan`} className="font-semibold underline">Mi plan</a> para que el cobro online aparezca en la tienda.
+          </p>
+        )}
         <label className="mt-3 block">
           <span className="text-sm font-medium text-neutral-700">Access Token</span>
           <input
@@ -305,6 +314,12 @@ export default function SettingsForm({ initial }: { initial: Settings }) {
         <p className="text-sm text-neutral-500">
           Para emitir facturas reales a tus clientes con <b>tu CUIT</b>. Si lo dejás sin configurar, la factura se genera en modo demo (CAE de prueba).
         </p>
+        {!arcaAddon && (
+          <p className="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-700 ring-1 ring-amber-200">
+            ⚠️ La integración de facturación no está activada. Activala en{" "}
+            <a href={`${base}/admin/plan`} className="font-semibold underline">Mi plan</a> para ofrecer factura en el checkout.
+          </p>
+        )}
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-sm font-medium text-neutral-700">CUIT del comercio</span>

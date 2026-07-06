@@ -142,7 +142,6 @@ function seedDefaults(db: DB, storeName: string, demo: boolean) {
     plan: demo ? "empresa" : "emprendedor",
     addon_mp: demo ? "1" : "",
     addon_arca: demo ? "1" : "",
-    addon_whatsapp_ia: "",
     addon_delivery: "",
     addon_domain: "",
     hours_json: JSON.stringify({
@@ -366,12 +365,33 @@ export function createOrder(o: NewOrder, database: DB = db): number {
      VALUES (@code, @branch_id, @customer_name, @phone, @address, @delivery, @payment, @notes, @items, @subtotal, @shipping, @total, @invoice, @cuit, 'nuevo', @payment_status, @created_at)`
   );
   const decStock = database.prepare(`UPDATE product_branches SET stock = MAX(0, stock - ?) WHERE product_id = ? AND branch_id = ? AND stock IS NOT NULL`);
+  const getStock = database.prepare(`SELECT stock FROM product_branches WHERE product_id = ? AND branch_id = ?`);
   const tx = database.transaction(() => {
+    // Validación de stock: si algún ítem supera lo disponible, cancelamos todo el pedido.
+    if (o.branch_id != null) {
+      const short: string[] = [];
+      for (const it of o.items ?? []) {
+        if (it.product_id == null || it.qty <= 0) continue;
+        const row = getStock.get(it.product_id, o.branch_id) as { stock: number | null } | undefined;
+        if (row && row.stock != null && it.qty > row.stock) short.push(`${it.name} (disponible: ${row.stock})`);
+      }
+      if (short.length) throw new OutOfStockError(short);
+    }
     const info = insert.run({ ...o, items: JSON.stringify(o.items ?? []), invoice: o.invoice ? 1 : 0 });
     if (o.branch_id != null) for (const it of o.items ?? []) if (it.product_id != null && it.qty > 0) decStock.run(it.qty, it.product_id, o.branch_id);
     return Number(info.lastInsertRowid);
   });
   return tx();
+}
+
+// Error de stock insuficiente al crear un pedido (lista de ítems afectados).
+export class OutOfStockError extends Error {
+  items: string[];
+  constructor(items: string[]) {
+    super("Sin stock suficiente");
+    this.name = "OutOfStockError";
+    this.items = items;
+  }
 }
 
 export function getOrders(opts: { branchId?: number | null } = {}, database: DB = db): Order[] {

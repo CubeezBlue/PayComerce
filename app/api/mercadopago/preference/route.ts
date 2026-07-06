@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSettings, createOrder, deleteOrder } from "@/lib/db";
+import { getSettings, createOrder, deleteOrder, OutOfStockError } from "@/lib/db";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
 
 // Crea la preferencia de pago en Mercado Pago (Checkout Pro) y guarda el pedido.
@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
   const total = Number(b.total ?? 0);
 
   // 1) Guardar el pedido (queda como "nuevo", pago online)
-  const orderId = createOrder({
+  let orderId: number;
+  try {
+    orderId = createOrder({
     code: String(b.code ?? ""),
     branch_id: b.branch_id ?? null,
     customer_name: String(b.customer_name ?? ""),
@@ -43,6 +45,11 @@ export async function POST(req: NextRequest) {
     payment_status: "pending", // hasta que el webhook confirme el pago
     created_at: new Date().toISOString(),
   }, db);
+  } catch (e) {
+    if (e instanceof OutOfStockError)
+      return NextResponse.json({ error: "Sin stock suficiente", items: e.items }, { status: 409 });
+    throw e;
+  }
 
   // 2) Armar la preferencia
   const origin = req.nextUrl.origin;

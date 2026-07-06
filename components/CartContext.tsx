@@ -12,6 +12,7 @@ export type CartLine = {
   price: number; // precio unitario ya con adicionales
   qty: number;
   options: string; // etiqueta legible: "Grande, + queso" (vacío si no tiene)
+  maxStock: number | null; // stock disponible en la sucursal (null = sin límite)
 };
 
 type NewLine = Omit<CartLine, "qty">;
@@ -20,10 +21,11 @@ type CartValue = {
   lines: CartLine[];
   count: number;
   subtotal: number;
-  addSimple: (p: { id: number; name: string; price: number }) => void;
+  addSimple: (p: { id: number; name: string; price: number; maxStock?: number | null }) => void;
   addLine: (line: NewLine, qty?: number) => void;
   inc: (key: string) => void;
   dec: (key: string) => void;
+  atMax: (key: string) => boolean;
   clear: () => void;
   qtyOf: (productId: number) => number;
   cartOpen: boolean;
@@ -85,28 +87,43 @@ export function CartProvider({ week, children }: { week: WeekHours; children: Re
     else localStorage.setItem(BRANCH_KEY, String(id));
   };
 
+  // Tope de unidades para una línea según su stock (null = sin límite).
+  const capQty = (q: number, max: number | null | undefined) =>
+    max === null || max === undefined ? q : Math.max(0, Math.min(q, max));
+
   const addLine = (line: NewLine, qty = 1) =>
     setLines((ls) => {
       const found = ls.find((l) => l.key === line.key);
-      if (found) return ls.map((l) => (l.key === line.key ? { ...l, qty: l.qty + qty } : l));
-      return [...ls, { ...line, qty }];
+      if (found) {
+        // Usamos el stock más reciente (por si cambió de sucursal) y topeamos.
+        const max = line.maxStock;
+        return ls.map((l) => (l.key === line.key ? { ...l, maxStock: max, qty: capQty(l.qty + qty, max) } : l));
+      }
+      const capped = capQty(qty, line.maxStock);
+      if (capped <= 0) return ls; // sin stock: no agrega
+      return [...ls, { ...line, qty: capped }];
     });
 
   const addSimple: CartValue["addSimple"] = (p) =>
-    addLine({ key: `p${p.id}`, productId: p.id, name: p.name, price: p.price, options: "" });
+    addLine({ key: `p${p.id}`, productId: p.id, name: p.name, price: p.price, options: "", maxStock: p.maxStock ?? null });
 
-  const inc = (key: string) => setLines((ls) => ls.map((l) => (l.key === key ? { ...l, qty: l.qty + 1 } : l)));
+  const inc = (key: string) =>
+    setLines((ls) => ls.map((l) => (l.key === key ? { ...l, qty: capQty(l.qty + 1, l.maxStock) } : l)));
   const dec = (key: string) =>
     setLines((ls) => ls.flatMap((l) => (l.key === key ? (l.qty > 1 ? [{ ...l, qty: l.qty - 1 }] : []) : [l])));
   const clear = () => setLines([]);
   const qtyOf = (productId: number) => lines.find((l) => l.key === `p${productId}`)?.qty ?? 0;
+  const atMax = (key: string) => {
+    const l = lines.find((x) => x.key === key);
+    return !!l && l.maxStock !== null && l.qty >= l.maxStock;
+  };
 
   const count = lines.reduce((s, l) => s + l.qty, 0);
   const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
 
   const value = useMemo(
     () => ({
-      lines, count, subtotal, addSimple, addLine, inc, dec, clear, qtyOf,
+      lines, count, subtotal, addSimple, addLine, inc, dec, clear, qtyOf, atMax,
       cartOpen, setCartOpen, checkoutOpen, setCheckoutOpen,
       branchId, setBranchId, branchModalOpen, setBranchModalOpen, hydrated,
       storeOpen, nextOpen,

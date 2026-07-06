@@ -4,7 +4,7 @@ import { formatPrice } from "@/lib/format";
 import { useCart } from "./CartContext";
 
 export default function CartDrawer({ currency }: { currency: string }) {
-  const { lines, subtotal, count, inc, dec, cartOpen, setCartOpen, setCheckoutOpen, storeOpen, nextOpen } = useCart();
+  const { lines, subtotal, count, inc, dec, atMax, cartOpen, setCartOpen, setCheckoutOpen, storeOpen, nextOpen } = useCart();
   if (!cartOpen) return null;
 
   return (
@@ -32,7 +32,7 @@ export default function CartDrawer({ currency }: { currency: string }) {
                 <div className="flex items-center gap-2 rounded-full bg-white px-2 py-1 ring-1 ring-black/5">
                   <button onClick={() => dec(l.key)} className="grid h-6 w-6 place-items-center text-lg font-bold text-[var(--brand)]">−</button>
                   <span className="min-w-4 text-center text-sm font-bold">{l.qty}</span>
-                  <button onClick={() => inc(l.key)} className="grid h-6 w-6 place-items-center text-lg font-bold text-[var(--brand)]">+</button>
+                  <button onClick={() => inc(l.key)} disabled={atMax(l.key)} className="grid h-6 w-6 place-items-center text-lg font-bold text-[var(--brand)] disabled:opacity-30">+</button>
                 </div>
                 <span className="w-20 text-right text-sm font-semibold">{formatPrice(l.price * l.qty, currency)}</span>
               </div>

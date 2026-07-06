@@ -35,6 +35,8 @@ export default function ProductCard({
   onCustomize?: () => void;
 }) {
   const soldOut = product.stock !== null && product.stock <= 0;
+  // Si hay stock definido, no se puede superar en el carrito.
+  const atMax = product.stock !== null && qty >= product.stock;
 
   return (
     <div className="group flex flex-col overflow-hidden rounded-2xl bg-[var(--c-card)] text-[var(--c-card-text)] shadow-sm ring-1 ring-black/5 transition hover:shadow-md">
@@ -56,6 +58,11 @@ export default function ProductCard({
         <h3 className="font-semibold leading-tight">{product.name}</h3>
         {product.description && (
           <p className="line-clamp-2 text-sm text-[var(--c-card-muted)]">{product.description}</p>
+        )}
+        {product.stock !== null && product.stock > 0 && product.stock <= 5 && (
+          <p className="text-xs font-medium text-amber-600">
+            {atMax ? `Máximo ${product.stock} (sin más stock)` : `Quedan ${product.stock}`}
+          </p>
         )}
         <div className="mt-auto flex items-center justify-between pt-3">
           <span className="text-lg font-bold">{formatPrice(product.price, currency)}</span>
@@ -80,7 +87,7 @@ export default function ProductCard({
             <div className="flex items-center gap-3 rounded-full bg-[var(--brand)] px-2 py-1 text-[var(--brand-text)]">
               <button onClick={onRemove} className="grid h-7 w-7 place-items-center rounded-full text-lg font-bold hover:bg-white/20">−</button>
               <span className="min-w-4 text-center text-sm font-bold">{qty}</span>
-              <button onClick={onAdd} disabled={soldOut} className="grid h-7 w-7 place-items-center rounded-full text-lg font-bold hover:bg-white/20 disabled:opacity-40">+</button>
+              <button onClick={onAdd} disabled={soldOut || atMax} className="grid h-7 w-7 place-items-center rounded-full text-lg font-bold hover:bg-white/20 disabled:opacity-40 disabled:hover:bg-transparent">+</button>
             </div>
           )}
         </div>

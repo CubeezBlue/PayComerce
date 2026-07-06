@@ -26,6 +26,7 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
   const onlineEnabled = settings.online_payment === "1";
 
   const [step, setStep] = useState<"form" | "paying" | "success">("form");
+  const [stockError, setStockError] = useState<string[]>([]);
   const [delivery, setDelivery] = useState<Delivery>("delivery");
   const [payment, setPayment] = useState<Payment>(onlineEnabled ? "online" : "cash");
   const [name, setName] = useState("");
@@ -100,13 +101,25 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
     };
   }
 
-  function persistOrder() {
-    // Guarda el pedido para que aparezca en el tablero del comercio (no bloquea el flujo)
-    fetch("/api/orders", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(orderPayload()),
-    }).catch(() => {});
+  // Guarda el pedido en el tablero. Devuelve true si se creó; si faltó stock,
+  // carga stockError y devuelve false para frenar el flujo.
+  async function persistOrder(): Promise<boolean> {
+    try {
+      const res = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(orderPayload()),
+      });
+      if (res.status === 409) {
+        const data = await res.json().catch(() => ({}));
+        setStockError(Array.isArray(data.items) ? data.items : ["Algún producto se quedó sin stock"]);
+        return false;
+      }
+      return true;
+    } catch {
+      // Error de red: no bloqueamos la venta (el comercio la puede tomar igual)
+      return true;
+    }
   }
 
   async function startMercadoPago() {
@@ -117,6 +130,12 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(orderPayload()),
       });
+      if (res.status === 409) {
+        const data = await res.json().catch(() => ({}));
+        setStockError(Array.isArray(data.items) ? data.items : ["Algún producto se quedó sin stock"]);
+        setStep("form");
+        return;
+      }
       const data = await res.json();
       if (res.ok && data.init_point) {
         // El pedido ya quedó guardado por la API; redirigimos a pagar
@@ -127,23 +146,24 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
       /* cae al flujo simulado */
     }
     // Si MP no está disponible, no perdemos la venta: guardamos y mostramos éxito
-    persistOrder();
+    if (!(await persistOrder())) { setStep("form"); return; }
     setStep("success");
   }
 
-  function confirm() {
+  async function confirm() {
     if (!valid) return;
+    setStockError([]);
     if (payment === "online") {
       if (settings.mp_enabled === "1") {
         startMercadoPago();
         return;
       }
       // Simulación de pasarela de pago (demo)
-      persistOrder();
       setStep("paying");
+      if (!(await persistOrder())) { setStep("form"); return; }
       setTimeout(() => setStep("success"), 1800);
     } else {
-      persistOrder();
+      if (!(await persistOrder())) return;
       sendWhatsApp();
       setStep("success");
     }
@@ -231,6 +251,12 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
               </button>
               {!valid && (
                 <p className="text-center text-xs text-neutral-400">Completá: {errors.join(", ")}</p>
+              )}
+              {stockError.length > 0 && (
+                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200">
+                  <p className="font-semibold">Nos quedamos sin stock</p>
+                  <p className="mt-0.5">Ajustá las cantidades: {stockError.join(", ")}.</p>
+                </div>
               )}
             </footer>
           </>

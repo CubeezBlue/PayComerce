@@ -93,11 +93,21 @@ export default function CatalogTools() {
       {/* Ayuda de formato */}
       <div className="rounded-2xl bg-neutral-50 p-5 text-sm text-neutral-600 ring-1 ring-black/5">
         <p className="font-semibold text-neutral-800">Formato de la planilla</p>
-        <p className="mt-2">Columnas: <code className="rounded bg-white px-1">ID</code> (vacío = nuevo), <code className="rounded bg-white px-1">Categoria</code>, <code className="rounded bg-white px-1">Nombre</code>, <code className="rounded bg-white px-1">Descripcion</code>, <code className="rounded bg-white px-1">Precio</code>, <code className="rounded bg-white px-1">Stock</code>, <code className="rounded bg-white px-1">Activo</code> (SI/NO), <code className="rounded bg-white px-1">Imagen</code>, <code className="rounded bg-white px-1">Eliminar</code> (SI para borrar).</p>
-        <ul className="mt-2 list-inside list-disc text-neutral-500">
+        <p className="mt-2">Columnas: <code className="rounded bg-white px-1">ID</code> (vacío = nuevo), <code className="rounded bg-white px-1">Categoria</code>, <code className="rounded bg-white px-1">Nombre</code>, <code className="rounded bg-white px-1">Descripcion</code>, <code className="rounded bg-white px-1">Precio</code>, <code className="rounded bg-white px-1">Activo</code> (SI/NO), <code className="rounded bg-white px-1">Imagen</code>, <code className="rounded bg-white px-1">Eliminar</code> (SI para borrar), y una columna <b>por sucursal</b>: <code className="rounded bg-white px-1">Stock: NombreSucursal</code>.</p>
+        <div className="mt-3 rounded-xl bg-[var(--brand)]/5 p-3 ring-1 ring-[var(--brand)]/20">
+          <p className="font-semibold text-neutral-800">📍 Stock por sucursal</p>
+          <p className="mt-1">Cada sucursal tiene su propia columna <code className="rounded bg-white px-1">Stock: …</code>. En cada celda:</p>
+          <ul className="mt-1 list-inside list-disc">
+            <li><b>Vacío</b> → el producto <b>no</b> se vende en esa sucursal.</li>
+            <li><b>Un número</b> (0, 5, 20…) → está en esa sucursal con ese stock.</li>
+            <li><b>SI</b> o <b>-</b> → está en esa sucursal con stock ilimitado (sin control).</li>
+          </ul>
+          <p className="mt-1 text-neutral-500">Así podés tener un artículo en una sucursal y en otra no, con cantidades distintas.</p>
+        </div>
+        <ul className="mt-3 list-inside list-disc text-neutral-500">
           <li>Si la categoría no existe, se crea automáticamente.</li>
           <li>Para borrar un producto, poné <b>SI</b> en la columna Eliminar (con su ID).</li>
-          <li>Lo más fácil: exportá primero para tener la plantilla con tus datos.</li>
+          <li><b>Lo más fácil:</b> exportá primero — la plantilla ya trae una columna por cada sucursal.</li>
         </ul>
       </div>
     </div>

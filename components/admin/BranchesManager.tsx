@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Branch } from "@/lib/types";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 type Draft = { id?: number; name: string; address: string; whatsapp_number: string; active: boolean };
 const empty: Draft = { name: "", address: "", whatsapp_number: "", active: true };
@@ -99,7 +100,16 @@ export default function BranchesManager() {
             <h2 className="text-lg font-bold">{editing.id ? "Editar sucursal" : "Nueva sucursal"}</h2>
             <div className="mt-4 space-y-3">
               <Field label="Nombre" value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} placeholder="Ej: Centro, Nueva Córdoba…" />
-              <Field label="Dirección" value={editing.address} onChange={(v) => setEditing({ ...editing, address: v })} placeholder="Calle y número" />
+              <label className="block">
+                <span className="text-sm font-medium text-neutral-700">Dirección</span>
+                <div className="mt-1">
+                  <AddressAutocomplete
+                    value={editing.address}
+                    onChange={(v) => setEditing({ ...editing, address: v })}
+                    placeholder="Escribí la calle y elegí del mapa"
+                  />
+                </div>
+              </label>
               <Field label="WhatsApp de la sucursal" value={editing.whatsapp_number} onChange={(v) => setEditing({ ...editing, whatsapp_number: v })} placeholder="Vacío = usa el general" />
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={editing.active} onChange={(e) => setEditing({ ...editing, active: e.target.checked })} className="h-4 w-4 accent-[var(--brand)]" />

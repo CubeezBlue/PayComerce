@@ -6,7 +6,13 @@ import { storeDbFromReq } from "@/lib/tenant";
 // - Disponible sin restricciones de plan.
 // - Crea categorías nuevas automáticamente si no existen.
 // - Permite eliminar productos marcando la columna "Eliminar" con SI.
-// Columnas: ID (opcional, para actualizar), Categoria, Nombre, Descripcion, Precio, Stock, Activo, Imagen, Eliminar
+// - Stock POR SUCURSAL: una columna "Stock: <Sucursal>" por cada sucursal.
+//   · celda vacía  = el producto NO está en esa sucursal
+//   · un número    = está en esa sucursal con ese stock (0 = sin stock)
+//   · "SI" / "-"   = está en esa sucursal con stock ilimitado (sin control)
+// Compatibilidad: si la planilla no trae columnas por sucursal, se usa la
+// columna genérica "Stock" aplicada a todas las sucursales (formato viejo).
+// Columnas: ID, Categoria, Nombre, Descripcion, Precio, [Stock | Stock: <Suc>...], Activo, Imagen, Eliminar
 export async function POST(req: NextRequest) {
   const db = storeDbFromReq(req);
   const form = await req.formData();
@@ -27,9 +33,36 @@ export async function POST(req: NextRequest) {
   const errors: string[] = [];
   let created = 0, updated = 0, deleted = 0, categoriesCreated = 0;
 
-  const allBranches = db.prepare("SELECT id FROM branches").all() as { id: number }[];
+  const allBranches = db.prepare("SELECT id, name FROM branches ORDER BY position, id").all() as { id: number; name: string }[];
+
+  // Detectamos qué columna del Excel corresponde a cada sucursal (si es que hay).
+  const headerKeys = rows.length ? Object.keys(rows[0]) : [];
+  const canon = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+  const branchCol = new Map<number, string>(); // branchId -> header exacto
+  for (const br of allBranches) {
+    const targets = [canon(`stock: ${br.name}`), canon(`stock ${br.name}`), canon(br.name)];
+    const key = headerKeys.find((k) => targets.includes(canon(k)));
+    if (key) branchCol.set(br.id, key);
+  }
+  const perBranchMode = branchCol.size > 0;
+
+  // Interpreta el valor de una celda de stock por sucursal.
+  // Devuelve: { inBranch: boolean, stock: number|null }
+  const parseBranchCell = (raw: string): { inBranch: boolean; stock: number | null } => {
+    const v = raw.trim();
+    if (v === "") return { inBranch: false, stock: null };
+    if (/^(si|sí|s|x|-|∞|ilimitado)$/i.test(v)) return { inBranch: true, stock: null };
+    const n = Number(v);
+    if (Number.isFinite(n) && n >= 0) return { inBranch: true, stock: n };
+    return { inBranch: false, stock: null }; // valor raro → lo tratamos como "no está"
+  };
+
   const insertPB = db.prepare("INSERT OR IGNORE INTO product_branches (product_id, branch_id, stock) VALUES (?, ?, ?)");
-  const updatePBStock = db.prepare("UPDATE product_branches SET stock = ? WHERE product_id = ?");
+  const upsertPB = db.prepare(
+    "INSERT INTO product_branches (product_id, branch_id, stock) VALUES (?, ?, ?) ON CONFLICT(product_id, branch_id) DO UPDATE SET stock = excluded.stock"
+  );
+  const deletePB = db.prepare("DELETE FROM product_branches WHERE product_id = ? AND branch_id = ?");
+  const updatePBStockAll = db.prepare("UPDATE product_branches SET stock = ? WHERE product_id = ?");
 
   const getCatId = db.prepare("SELECT id FROM categories WHERE lower(name) = lower(?)");
   const insertCat = db.prepare("INSERT INTO categories (name, position) VALUES (?, (SELECT COALESCE(MAX(position), -1) + 1 FROM categories))");
@@ -42,6 +75,17 @@ export async function POST(req: NextRequest) {
     `INSERT INTO products (category_id, name, description, price, image_url, stock, active, position)
      VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM products))`
   );
+
+  // Aplica el stock por sucursal de una fila a un producto (crea/actualiza/borra asignaciones).
+  const applyBranches = (productId: number, row: Record<string, unknown>) => {
+    for (const br of allBranches) {
+      const col = branchCol.get(br.id);
+      if (!col) continue; // esta sucursal no vino en la planilla → no la tocamos
+      const { inBranch, stock } = parseBranchCell(norm(row[col]));
+      if (inBranch) upsertPB.run(productId, br.id, stock);
+      else deletePB.run(productId, br.id);
+    }
+  };
 
   const run = db.transaction(() => {
     rows.forEach((row, i) => {
@@ -68,21 +112,26 @@ export async function POST(req: NextRequest) {
         else { categoryId = Number(insertCat.run(catName).lastInsertRowid); categoriesCreated++; }
       }
 
+      // Stock genérico (columna "Stock") — solo para el modo compatibilidad.
       const stockRaw = norm(row["Stock"]);
-      const stock = stockRaw === "" ? null : Number(stockRaw);
+      const genericStock = stockRaw === "" ? null : Number(stockRaw);
       const active = /^(no|n|0)$/i.test(norm(row["Activo"])) ? 0 : 1;
       const image = norm(row["Imagen"]);
       const desc = norm(row["Descripcion"]);
 
       if (id && getProd.get(id)) {
-        updProd.run(categoryId, name, desc, price, image, stock, active, id);
-        // El stock de la planilla se aplica a las sucursales donde ya está el producto
-        updatePBStock.run(stock, id);
+        updProd.run(categoryId, name, desc, price, image, genericStock, active, id);
+        if (perBranchMode) applyBranches(id, row);
+        else updatePBStockAll.run(genericStock, id); // formato viejo: mismo stock a todas
         updated++;
       } else {
-        const newId = Number(insProd.run(categoryId, name, desc, price, image, stock, active).lastInsertRowid);
-        // Producto nuevo: disponible en todas las sucursales con el stock de la planilla
-        for (const br of allBranches) insertPB.run(newId, br.id, stock);
+        const newId = Number(insProd.run(categoryId, name, desc, price, image, genericStock, active).lastInsertRowid);
+        if (perBranchMode) {
+          applyBranches(newId, row);
+        } else {
+          // Formato viejo: producto nuevo disponible en todas las sucursales
+          for (const br of allBranches) insertPB.run(newId, br.id, genericStock);
+        }
         created++;
       }
     });

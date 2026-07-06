@@ -150,6 +150,11 @@ export default function Pricing() {
                         {FEATURE_LABELS[f]}
                       </li>
                     ))}
+                    {p.includedAddons.map((k) => (
+                      <li key={k} className="flex gap-2 font-medium text-green-700">
+                        <span>★</span> {ADDONS.find((a) => a.key === k)?.name} incluido
+                      </li>
+                    ))}
                   </ul>
                 </div>
               );

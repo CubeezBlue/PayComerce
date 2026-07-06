@@ -19,32 +19,36 @@ export type Plan = {
   tagline: string;
   productLimit: number | null; // null = ilimitado
   features: Feature[];
+  includedAddons: AddonKey[]; // integraciones incluidas sin costo extra
 };
 
 export const PLANS: Record<PlanId, Plan> = {
   emprendedor: {
     id: "emprendedor",
     name: "Emprendedor",
-    price: 14900,
+    price: 30000,
     tagline: "Para el comercio que arranca a vender online.",
     productLimit: 50,
     features: [],
+    includedAddons: [],
   },
   profesional: {
     id: "profesional",
     name: "Profesional",
-    price: 29900,
+    price: 50000,
     tagline: "Para el negocio que ya vende y quiere gestionar todo.",
     productLimit: null,
     features: ["variants", "excel", "price_adjust", "orders_board", "dashboard_full"],
+    includedAddons: [],
   },
   empresa: {
     id: "empresa",
     name: "Empresa",
-    price: 49900,
-    tagline: "Para cadenas y comercios con varias sucursales.",
+    price: 100000,
+    tagline: "Todo incluido: pagos online y facturación, para crecer sin límites.",
     productLimit: null,
     features: ["variants", "excel", "price_adjust", "orders_board", "dashboard_full", "branches", "reports"],
+    includedAddons: ["mp", "arca"],
   },
 };
 
@@ -79,8 +83,13 @@ export function hasFeature(settings: Record<string, string>, f: Feature): boolea
   return PLANS[planOf(settings)].features.includes(f);
 }
 
+// ¿La integración viene incluida sin costo en el plan actual?
+export function addonIncludedInPlan(settings: Record<string, string>, key: AddonKey): boolean {
+  return PLANS[planOf(settings)].includedAddons.includes(key);
+}
+
 export function hasAddon(settings: Record<string, string>, key: AddonKey): boolean {
-  return settings[`addon_${key}`] === "1";
+  return addonIncludedInPlan(settings, key) || settings[`addon_${key}`] === "1";
 }
 
 export function productLimit(settings: Record<string, string>): number | null {

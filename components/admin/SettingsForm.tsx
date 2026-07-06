@@ -5,6 +5,7 @@ import ImageUpload from "./ImageUpload";
 import { PALETTE_ROLES, DEFAULT_PALETTE, SUGGESTED_COLORS, PRESET_PALETTES } from "@/lib/palettes";
 import { resolveTheme } from "@/lib/theme";
 import { RUBROS, parseFeatures, Feature } from "@/lib/rubros";
+import { hasAddon } from "@/lib/plans";
 import { parseWeek, WeekHours, DAY_NAMES } from "@/lib/hours";
 
 type Settings = Record<string, string>;
@@ -25,9 +26,10 @@ const FIELDS: { key: string; label: string; type?: string; hint?: string }[] = [
 ];
 
 export default function SettingsForm({ initial, base = "" }: { initial: Settings; base?: string }) {
-  // ¿La integración está contratada en "Mi plan"? (para avisar si falta activarla)
-  const mpAddon = initial.addon_mp === "1";
-  const arcaAddon = initial.addon_arca === "1";
+  // Solo mostramos la configuración de una integración si está activa (contratada
+  // en "Mi plan" o incluida en el plan). Si no, ni aparece hasta que la habiliten.
+  const mpActive = hasAddon(initial, "mp");
+  const arcaActive = hasAddon(initial, "arca");
   const [values, setValues] = useState<Settings>({
     online_payment: "1",
     ...DEFAULT_PALETTE,
@@ -280,18 +282,13 @@ export default function SettingsForm({ initial, base = "" }: { initial: Settings
         </label>
       </div>
 
-      {/* Cobros con Mercado Pago */}
+      {/* Cobros con Mercado Pago — solo si la integración está activa */}
+      {mpActive && (
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <h2 className="font-bold">Cobros con Mercado Pago</h2>
         <p className="text-sm text-neutral-500">
           Pegá tu <b>Access Token</b> para cobrar de verdad. Si lo dejás vacío, el pago online funciona en modo demo (sin cobro).
         </p>
-        {!mpAddon && (
-          <p className="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-700 ring-1 ring-amber-200">
-            ⚠️ La integración de Mercado Pago no está activada. Activala en{" "}
-            <a href={`${base}/admin/plan`} className="font-semibold underline">Mi plan</a> para que el cobro online aparezca en la tienda.
-          </p>
-        )}
         <label className="mt-3 block">
           <span className="text-sm font-medium text-neutral-700">Access Token</span>
           <input
@@ -307,19 +304,15 @@ export default function SettingsForm({ initial, base = "" }: { initial: Settings
           <b>producción</b> para cobrar en serio. {values.mp_access_token ? "✅ Configurado." : "⚠️ Sin configurar (modo demo)."}
         </p>
       </div>
+      )}
 
-      {/* Facturación electrónica ARCA */}
+      {/* Facturación electrónica ARCA — solo si la integración está activa */}
+      {arcaActive && (
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <h2 className="font-bold">Facturación electrónica (ARCA/AFIP)</h2>
         <p className="text-sm text-neutral-500">
           Para emitir facturas reales a tus clientes con <b>tu CUIT</b>. Si lo dejás sin configurar, la factura se genera en modo demo (CAE de prueba).
         </p>
-        {!arcaAddon && (
-          <p className="mt-3 rounded-xl bg-amber-50 px-4 py-2.5 text-sm text-amber-700 ring-1 ring-amber-200">
-            ⚠️ La integración de facturación no está activada. Activala en{" "}
-            <a href={`${base}/admin/plan`} className="font-semibold underline">Mi plan</a> para ofrecer factura en el checkout.
-          </p>
-        )}
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <label className="block">
             <span className="text-sm font-medium text-neutral-700">CUIT del comercio</span>
@@ -376,6 +369,7 @@ export default function SettingsForm({ initial, base = "" }: { initial: Settings
           {values.afip_access_token && values.afip_cuit ? "✅ Configurado." : "⚠️ Sin configurar (modo demo)."}
         </p>
       </div>
+      )}
 
       {/* Campos */}
       <div className="grid gap-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5 sm:grid-cols-2">

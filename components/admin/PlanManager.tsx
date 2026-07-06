@@ -20,7 +20,9 @@ export default function PlanManager({ initial, base = "" }: { initial: Record<st
     arca: !!(initial.afip_access_token?.trim() && initial.afip_cuit?.trim()),
   };
 
-  const addonsTotal = ADDONS.filter((a) => addons[a.key] && !a.soon).reduce((s, a) => s + a.price, 0);
+  // Addons incluidos sin costo según el plan elegido (no suman ni se pueden desactivar).
+  const includedAddons = PLANS[plan as keyof typeof PLANS].includedAddons as string[];
+  const addonsTotal = ADDONS.filter((a) => addons[a.key] && !a.soon && !includedAddons.includes(a.key)).reduce((s, a) => s + a.price, 0);
   const total = PLANS[plan as keyof typeof PLANS].price + addonsTotal;
 
   async function save() {
@@ -65,6 +67,9 @@ export default function PlanManager({ initial, base = "" }: { initial: Record<st
                 {ALL_FEATURES.filter((f) => p.features.includes(f)).map((f) => (
                   <li key={f} className="text-neutral-600">✓ {FEATURE_LABELS[f]}</li>
                 ))}
+                {p.includedAddons.map((k) => (
+                  <li key={k} className="font-medium text-green-700">★ {ADDONS.find((a) => a.key === k)?.name} incluido</li>
+                ))}
                 {ALL_FEATURES.filter((f) => !p.features.includes(f)).map((f) => (
                   <li key={f} className="text-neutral-300">✕ {FEATURE_LABELS[f]}</li>
                 ))}
@@ -80,21 +85,22 @@ export default function PlanManager({ initial, base = "" }: { initial: Record<st
         <p className="text-sm text-neutral-500">Se suman a cualquier plan. Activá solo las que necesites.</p>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {ADDONS.map((a) => {
-            const on = addons[a.key];
             const soon = !!a.soon;
+            const included = includedAddons.includes(a.key); // viene con el plan
+            const on = included || addons[a.key];
             const needsCreds = a.key in configured;
             const ready = needsCreds ? configured[a.key] : true;
             return (
               <label
                 key={a.key}
                 className={`flex items-start gap-3 rounded-2xl border-2 p-4 transition ${
-                  soon ? "cursor-not-allowed border-neutral-200 bg-neutral-50 opacity-70" : "cursor-pointer"
-                } ${on && !soon ? "border-[var(--brand)] bg-[var(--brand)]/5" : soon ? "" : "border-neutral-200 bg-white hover:border-neutral-300"}`}
+                  soon || included ? "cursor-default" : "cursor-pointer"
+                } ${soon ? "border-neutral-200 bg-neutral-50 opacity-70" : on ? "border-[var(--brand)] bg-[var(--brand)]/5" : "border-neutral-200 bg-white hover:border-neutral-300"}`}
               >
                 <input
                   type="checkbox"
                   checked={on && !soon}
-                  disabled={soon}
+                  disabled={soon || included}
                   onChange={(e) => { setAddons((s) => ({ ...s, [a.key]: e.target.checked })); setSaved(false); }}
                   className="mt-1 h-4 w-4 accent-[var(--brand)] disabled:opacity-40"
                 />
@@ -103,6 +109,8 @@ export default function PlanManager({ initial, base = "" }: { initial: Record<st
                     <span className="font-semibold">{a.icon} {a.name}</span>
                     {soon ? (
                       <span className="rounded-full bg-neutral-200 px-2 py-0.5 text-xs font-semibold text-neutral-500">Próximamente</span>
+                    ) : included ? (
+                      <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">Incluido</span>
                     ) : (
                       <span className="text-sm font-bold">+{formatPrice(a.price)}</span>
                     )}

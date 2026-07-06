@@ -50,6 +50,14 @@ CREATE TABLE IF NOT EXISTS product_branches (
   stock INTEGER,
   PRIMARY KEY (product_id, branch_id)
 );
+CREATE TABLE IF NOT EXISTS delivery_zones (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  cost REAL NOT NULL DEFAULT 0,
+  min_order REAL NOT NULL DEFAULT 0,
+  active INTEGER NOT NULL DEFAULT 1,
+  position INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS option_groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -298,6 +306,7 @@ export type Product = {
 };
 export type Branch = { id: number; name: string; address: string; whatsapp_number: string; active: number; position: number };
 export type BranchStock = { branch_id: number; stock: number | null };
+export type DeliveryZone = { id: number; name: string; cost: number; min_order: number; active: number; position: number };
 export type OptionItem = { id: number; group_id: number; name: string; price: number; position: number };
 export type OptionGroup = { id: number; product_id: number; name: string; min_select: number; max_select: number; position: number; options: OptionItem[] };
 export type StoreProduct = Product & { branches: BranchStock[]; optionGroups: OptionGroup[] };
@@ -343,6 +352,11 @@ export function setProductOptions(productId: number, groups: { name: string; min
 export function getBranches(onlyActive = false, database: DB = db): Branch[] {
   const where = onlyActive ? "WHERE active = 1" : "";
   return database.prepare(`SELECT * FROM branches ${where} ORDER BY position, id`).all() as Branch[];
+}
+
+export function getDeliveryZones(onlyActive = false, database: DB = db): DeliveryZone[] {
+  const where = onlyActive ? "WHERE active = 1" : "";
+  return database.prepare(`SELECT * FROM delivery_zones ${where} ORDER BY position, id`).all() as DeliveryZone[];
 }
 
 export function getProductsWithBranches(onlyActive = false, database: DB = db): StoreProduct[] {

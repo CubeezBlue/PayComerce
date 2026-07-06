@@ -23,6 +23,15 @@ export type Branch = {
 
 export type BranchStock = { branch_id: number; stock: number | null };
 
+export type DeliveryZone = {
+  id: number;
+  name: string;
+  cost: number;
+  min_order: number; // pedido mínimo para esa zona (0 = sin mínimo)
+  active: number;
+  position: number;
+};
+
 export type OptionItem = { id: number; group_id: number; name: string; price: number; position: number };
 export type OptionGroup = {
   id: number;

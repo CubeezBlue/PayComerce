@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { useCart } from "./CartContext";
-import { Branch } from "@/lib/types";
+import { Branch, DeliveryZone } from "@/lib/types";
 import AddressAutocomplete from "./AddressAutocomplete";
 
 type Settings = Record<string, string>;
@@ -15,7 +15,7 @@ function orderCode() {
   return "PC-" + Math.random().toString(36).slice(2, 6).toUpperCase() + Date.now().toString().slice(-4);
 }
 
-export default function Checkout({ settings, branches }: { settings: Settings; branches: Branch[] }) {
+export default function Checkout({ settings, branches, zones = [] }: { settings: Settings; branches: Branch[]; zones?: DeliveryZone[] }) {
   const { lines, subtotal, clear, setCheckoutOpen, branchId, setBranchModalOpen } = useCart();
   const onClose = () => setCheckoutOpen(false);
   const onDone = () => { clear(); setCheckoutOpen(false); };
@@ -24,6 +24,8 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
   const multiBranch = branches.length > 1;
   const deliveryCost = Number(settings.delivery_cost || 0);
   const onlineEnabled = settings.online_payment === "1";
+  // Delivery por zonas: activo si el comercio tiene la integración y cargó zonas.
+  const zonesOn = settings.delivery_enabled === "1" && zones.length > 0;
 
   const [step, setStep] = useState<"form" | "paying" | "success">("form");
   const [stockError, setStockError] = useState<string[]>([]);
@@ -32,20 +34,25 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [zoneId, setZoneId] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [wantInvoice, setWantInvoice] = useState(false);
   const [cuit, setCuit] = useState("");
   const [code] = useState(orderCode);
 
-  const shipping = delivery === "delivery" ? deliveryCost : 0;
+  const selectedZone = zonesOn ? zones.find((z) => z.id === zoneId) ?? null : null;
+  const shipping = delivery === "delivery" ? (zonesOn ? (selectedZone?.cost ?? 0) : deliveryCost) : 0;
   const total = subtotal + shipping;
+  // Pedido mínimo de la zona no alcanzado
+  const belowMin = !!selectedZone && selectedZone.min_order > 0 && subtotal < selectedZone.min_order;
 
   const errors: string[] = [];
   if (!name.trim()) errors.push("nombre");
   if (!phone.trim()) errors.push("teléfono");
   if (delivery === "delivery" && !address.trim()) errors.push("dirección");
+  if (delivery === "delivery" && zonesOn && !selectedZone) errors.push("zona de envío");
   if (wantInvoice && cuit.trim().length < 8) errors.push("CUIT/DNI");
-  const valid = errors.length === 0;
+  const valid = errors.length === 0 && !belowMin;
 
   function buildWhatsAppText() {
     const msg: string[] = [];
@@ -63,7 +70,7 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
     msg.push("");
     msg.push(`Cliente: ${name}`);
     msg.push(`Teléfono: ${phone}`);
-    msg.push(delivery === "delivery" ? `Entrega: Delivery — ${address}` : "Entrega: Retiro en local");
+    msg.push(delivery === "delivery" ? `Entrega: Delivery — ${address}${selectedZone ? ` (Zona: ${selectedZone.name})` : ""}` : "Entrega: Retiro en local");
     const pLabel = payment === "online" ? "Pagado online ✅" : payment === "cash" ? "Efectivo" : "Transferencia";
     msg.push(`Pago: ${pLabel}`);
     if (wantInvoice) msg.push(`Factura: Sí (CUIT/DNI ${cuit})`);
@@ -83,7 +90,7 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
       branch_id: branch?.id ?? null,
       customer_name: name,
       phone,
-      address,
+      address: delivery === "delivery" && selectedZone ? `${address} (Zona: ${selectedZone.name})` : address,
       delivery,
       payment,
       notes,
@@ -205,6 +212,27 @@ export default function Checkout({ settings, branches }: { settings: Settings; b
               <Input placeholder="Teléfono / WhatsApp" value={phone} onChange={setPhone} />
               {delivery === "delivery" && (
                 <AddressAutocomplete value={address} onChange={setAddress} placeholder="Dirección de entrega" />
+              )}
+              {delivery === "delivery" && zonesOn && (
+                <Field label="Zona de envío">
+                  <select
+                    value={zoneId ?? ""}
+                    onChange={(e) => setZoneId(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--brand)]"
+                  >
+                    <option value="">Elegí tu zona…</option>
+                    {zones.map((z) => (
+                      <option key={z.id} value={z.id}>
+                        {z.name} — {z.cost > 0 ? formatPrice(z.cost, currency) : "Gratis"}
+                      </option>
+                    ))}
+                  </select>
+                  {belowMin && selectedZone && (
+                    <p className="mt-1 text-xs text-red-500">
+                      El pedido mínimo para {selectedZone.name} es {formatPrice(selectedZone.min_order, currency)}.
+                    </p>
+                  )}
+                </Field>
               )}
 
               {/* Pago */}

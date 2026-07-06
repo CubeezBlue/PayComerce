@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Feature, hasFeature } from "@/lib/plans";
+import { Feature, hasFeature, AddonKey, hasAddon } from "@/lib/plans";
 
-const NAV: { href: string; label: string; icon: string; feature?: Feature }[] = [
+const NAV: { href: string; label: string; icon: string; feature?: Feature; addon?: AddonKey }[] = [
   { href: "/admin", label: "Inicio", icon: "📊" },
   { href: "/admin/pedidos", label: "Pedidos", icon: "🧾", feature: "orders_board" },
   { href: "/admin/productos", label: "Productos", icon: "📦" },
   { href: "/admin/sucursales", label: "Sucursales", icon: "📍", feature: "branches" },
+  { href: "/admin/envios", label: "Envíos", icon: "🛵", addon: "delivery" },
   { href: "/admin/precios", label: "Precios", icon: "📈", feature: "price_adjust" },
   { href: "/admin/catalogo", label: "Excel", icon: "📄", feature: "excel" },
   { href: "/admin/plan", label: "Mi plan", icon: "⭐" },
@@ -17,7 +18,7 @@ const NAV: { href: string; label: string; icon: string; feature?: Feature }[] = 
 
 export default function AdminShell({ settings, base = "", children }: { settings: Record<string, string>; base?: string; children: React.ReactNode }) {
   const pathname = usePathname();
-  const NAV_ITEMS = NAV.filter((n) => !n.feature || hasFeature(settings, n.feature));
+  const NAV_ITEMS = NAV.filter((n) => (!n.feature || hasFeature(settings, n.feature)) && (!n.addon || hasAddon(settings, n.addon)));
   // El middleware reescribe /t/<slug>/admin/... -> /admin/..., comparamos con la ruta limpia
   const clean = base && pathname.startsWith(base) ? pathname.slice(base.length) || "/" : pathname;
 

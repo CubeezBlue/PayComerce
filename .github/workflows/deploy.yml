@@ -41,8 +41,9 @@ jobs:
         run: |
           set -e
           mkdir -p ~/.ssh
-          # Limpia posibles CR (\r) si la llave se pegó desde Windows.
-          printf '%s\n' "${{ secrets.SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_deploy
+          # La llave privada va en el secreto SSH_KEY como base64 (una sola línea,
+          # a prueba de copiar/pegar). Acá la decodificamos al archivo real.
+          echo "${{ secrets.SSH_KEY }}" | base64 -d > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
           SSHOPT="-i ~/.ssh/id_deploy -p $SSH_PORT -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes"
           # Chequeo de conexión (si esto falla, el problema es la SSH_KEY/secretos).

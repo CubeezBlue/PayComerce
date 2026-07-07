@@ -38,8 +38,10 @@ export default function Pricing() {
             <a href="#faq" className="hover:text-[var(--pc)]">Preguntas</a>
             <Link href="/t/demo" className="hover:text-[var(--pc)]">Ver una tienda</Link>
           </nav>
-          <div className="flex items-center gap-3">
-            <Link href="/entrar" className="text-sm font-semibold text-neutral-600 hover:text-[var(--pc)]">Ingresar</Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link href="/entrar" className="rounded-full border border-[var(--pc)] px-4 py-2 text-sm font-semibold text-[var(--pc)] transition hover:bg-[var(--pc)]/5">
+              Ingresar
+            </Link>
             <Link href="/crear-tienda" className="rounded-full bg-[var(--pc)] px-4 py-2 text-sm font-semibold text-white shadow-sm">
               Crear mi tienda
             </Link>

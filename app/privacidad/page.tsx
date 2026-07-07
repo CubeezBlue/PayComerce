@@ -28,10 +28,10 @@ export default function PrivacidadPage() {
           contraseña (almacenada de forma cifrada), datos de configuración de la tienda y, si contrata integraciones,
           las credenciales necesarias para conectarlas.</p>
         <p><strong>De los clientes finales del Comercio:</strong> los datos que ingresan al hacer un pedido (nombre,
-          teléfono, dirección de entrega y detalle del pedido). Estos datos se tratan por cuenta y orden del Comercio,
+          teléfono, dirección de entrega, historial de pedidos). Estos datos se tratan por cuenta y orden del Comercio,
           que es su responsable principal.</p>
         <p><strong>Datos técnicos:</strong> información de uso y navegación necesaria para el funcionamiento y la
-          seguridad del Servicio.</p>
+          seguridad del Servicio. No recopilamos datos sensibles.</p>
       </Section>
 
       <Section n={3} title="Finalidad del tratamiento">
@@ -46,13 +46,23 @@ export default function PrivacidadPage() {
       <Section n={4} title="Con quién compartimos datos">
         <p>
           No vendemos datos personales. Solo los compartimos con proveedores que nos ayudan a prestar el Servicio,
-          en la medida necesaria: el proveedor de infraestructura/hosting, y —cuando el Comercio las activa— las
-          integraciones de <strong>Mercado Pago</strong> (cobros), <strong>ARCA/AFIP</strong> (facturación) y servicios
-          de mapas para autocompletar direcciones. Cada uno trata los datos según sus propias políticas.
+          en la medida necesaria: el proveedor de infraestructura/hosting, el proveedor de envío de emails, y —cuando el
+          Comercio las activa— las integraciones de <strong>Mercado Pago</strong> (cobros), <strong>ARCA/AFIP</strong>
+          (facturación) y servicios de mapas para autocompletar direcciones. Cada uno trata los datos según sus propias
+          políticas. También podremos compartir información ante un requerimiento fundado de autoridad administrativa o judicial.
         </p>
       </Section>
 
-      <Section n={5} title="Conservación de los datos">
+      <Section n={5} title="Almacenamiento y transferencia internacional">
+        <p>
+          Los datos se alojan en servidores de nuestros proveedores de infraestructura y de servicios (por ejemplo,
+          hosting y envío de emails), que pueden encontrarse fuera de la República Argentina. Al utilizar el Servicio,
+          prestás tu consentimiento para dicho almacenamiento y para las transferencias internacionales necesarias para
+          la prestación del Servicio, procurando que los proveedores ofrezcan medidas de protección adecuadas.
+        </p>
+      </Section>
+
+      <Section n={6} title="Conservación de los datos">
         <p>
           Conservamos los datos mientras la cuenta esté activa y durante el plazo necesario para cumplir obligaciones
           legales. Ante la baja de la cuenta, los datos se eliminan o anonimizan en un plazo razonable, salvo que la
@@ -60,15 +70,15 @@ export default function PrivacidadPage() {
         </p>
       </Section>
 
-      <Section n={6} title="Seguridad">
+      <Section n={7} title="Seguridad">
         <p>
           Aplicamos medidas técnicas y organizativas razonables para proteger los datos, incluyendo el cifrado de las
-          contraseñas y el aislamiento de la información de cada Comercio. Ningún sistema es 100% infalible, pero
-          trabajamos para minimizar los riesgos.
+          contraseñas, conexiones seguras (HTTPS), protección contra intentos de acceso por fuerza bruta y el aislamiento
+          de la información de cada Comercio. Ningún sistema es 100% infalible, pero trabajamos para minimizar los riesgos.
         </p>
       </Section>
 
-      <Section n={7} title="Datos de los clientes finales">
+      <Section n={8} title="Datos de los clientes finales">
         <p>
           Respecto de los datos de los clientes finales que compran en una tienda, el <strong>Comercio</strong> es el
           responsable del tratamiento y debe informar y respetar los derechos de esas personas. PayComerce actúa como
@@ -76,7 +86,7 @@ export default function PrivacidadPage() {
         </p>
       </Section>
 
-      <Section n={8} title="Tus derechos">
+      <Section n={9} title="Tus derechos">
         <p>
           Podés ejercer los derechos de acceso, rectificación, actualización y supresión de tus datos personales
           escribiéndonos a{" "}
@@ -87,25 +97,36 @@ export default function PrivacidadPage() {
         </p>
       </Section>
 
-      <Section n={9} title="Cookies">
+      <Section n={10} title="Comunicaciones y publicidad">
+        <p>
+          Podemos enviarte emails necesarios para el Servicio (por ejemplo, recuperación de contraseña o avisos
+          importantes de tu cuenta) y, ocasionalmente, novedades o promociones. Podés dejar de recibir las comunicaciones
+          promocionales en cualquier momento escribiéndonos a{" "}
+          <a href="mailto:hola@paycomerce.com" className="text-[var(--pc)] hover:underline">hola@paycomerce.com</a>; los
+          avisos operativos de tu cuenta seguirán enviándose mientras la cuenta esté activa.
+        </p>
+      </Section>
+
+      <Section n={11} title="Cookies">
         <p>
           Utilizamos cookies y almacenamiento local estrictamente necesarios para el funcionamiento del Servicio
           (por ejemplo, mantener tu sesión iniciada y recordar la tienda y el carrito). No usamos cookies con fines
-          publicitarios de terceros.
+          publicitarios de terceros. Podés bloquearlas desde la configuración de tu navegador, aunque algunas funciones
+          podrían dejar de andar.
         </p>
       </Section>
 
-      <Section n={10} title="Menores de edad">
+      <Section n={12} title="Menores de edad">
         <p>
           El Servicio está dirigido a personas mayores de edad que operan un comercio. No recopilamos de forma
-          intencional datos de menores.
+          intencional datos de menores; si detectamos que un menor nos brindó datos, los eliminaremos.
         </p>
       </Section>
 
-      <Section n={11} title="Cambios en esta Política">
+      <Section n={13} title="Cambios en esta Política">
         <p>
           Podemos actualizar esta Política. Publicaremos la versión vigente en esta página e informaremos los cambios
-          relevantes.
+          relevantes por los medios de contacto disponibles.
         </p>
       </Section>
 

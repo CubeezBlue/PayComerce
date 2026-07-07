@@ -357,7 +357,7 @@ export function createStore(slug: string, name: string, createdAt: string, passw
 }
 
 // Versión vigente de los Términos y la Política (coincide con "última actualización").
-export const TERMS_VERSION = "2026-07-06";
+export const TERMS_VERSION = "2026-07-07";
 
 // Asegurar que 'demo' esté registrado (para el comercio de ejemplo existente)
 if (!storeExists("demo")) {

@@ -41,9 +41,12 @@ jobs:
         run: |
           set -e
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          # Limpia posibles CR (\r) si la llave se pegó desde Windows.
+          printf '%s\n' "${{ secrets.SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          SSHOPT="-i ~/.ssh/id_deploy -p $SSH_PORT -o StrictHostKeyChecking=accept-new"
+          SSHOPT="-i ~/.ssh/id_deploy -p $SSH_PORT -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes"
+          # Chequeo de conexión (si esto falla, el problema es la SSH_KEY/secretos).
+          ssh $SSHOPT "$SSH_USER@$SSH_HOST" "echo CONECTADO-DESDE-ACTIONS"
 
           # Empaqueta el build (.next/standalone incluye .next/static y public por
           # postbuild) y lo extrae en el servidor. Solo necesita tar+ssh en el

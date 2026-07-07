@@ -253,11 +253,16 @@ export type StoreOverview = StoreInfo & {
   addons: string[];
   products: number;
   orders: number;
+  revenue: number;      // ventas acumuladas (pedidos no cancelados)
+  lastOrder: string | null; // fecha del último pedido
   mpConfigured: boolean;
+  paused: boolean;      // tienda en pausa (no operativa)
+  email: string | null;
 };
 
 export function listStoresWithInfo(): StoreOverview[] {
   return listStores().map((s) => {
+    const base = { ...s, email: (s as StoreInfo & { email?: string }).email ?? null };
     try {
       const sdb = getStoreDb(s.slug);
       const settings = getSettings(sdb);
@@ -265,18 +270,53 @@ export function listStoresWithInfo(): StoreOverview[] {
       const addons = addonKeys.filter((k) => settings[`addon_${k}`] === "1");
       const products = (sdb.prepare("SELECT COUNT(*) c FROM products").get() as { c: number }).c;
       const orders = (sdb.prepare("SELECT COUNT(*) c FROM orders").get() as { c: number }).c;
+      const agg = sdb.prepare("SELECT COALESCE(SUM(total),0) rev, MAX(created_at) last FROM orders WHERE status != 'cancelado'").get() as { rev: number; last: string | null };
       return {
-        ...s,
+        ...base,
         plan: settings.plan || "emprendedor",
         addons,
         products,
         orders,
+        revenue: agg.rev || 0,
+        lastOrder: agg.last,
         mpConfigured: !!settings.mp_access_token?.trim(),
+        paused: settings.paused === "1",
       };
     } catch {
-      return { ...s, plan: "—", addons: [], products: 0, orders: 0, mpConfigured: false };
+      return { ...base, plan: "—", addons: [], products: 0, orders: 0, revenue: 0, lastOrder: null, mpConfigured: false, paused: false };
     }
   });
+}
+
+// Pausar/reactivar una tienda (no operativa mientras esté en pausa).
+export function setStorePaused(slug: string, paused: boolean): void {
+  getStoreDb(slug).prepare("INSERT INTO settings (key, value) VALUES ('paused', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(paused ? "1" : "");
+}
+
+// Eliminar una tienda por completo: registro + base de datos. El demo no se borra.
+export function deleteStore(slug: string): boolean {
+  if (slug === "demo") return false;
+  if (!storeExists(slug)) return false;
+  const conn = connections.get(slug);
+  if (conn) {
+    // Antes de cerrar, vaciamos los datos: si el archivo no se puede borrar
+    // (bloqueo de SO), al menos no queda información y no "resucita" con el slug.
+    try {
+      conn.pragma("foreign_keys = OFF");
+      const tables = (conn.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all() as { name: string }[]);
+      const tx = conn.transaction(() => { for (const t of tables) conn.prepare(`DELETE FROM "${t.name}"`).run(); });
+      tx();
+      conn.pragma("wal_checkpoint(TRUNCATE)");
+    } catch {}
+    try { conn.close(); } catch {}
+    connections.delete(slug);
+  }
+  registry.prepare("DELETE FROM stores WHERE slug = ?").run(slug);
+  const file = fileForSlug(slug);
+  for (const f of [`${file}-wal`, `${file}-shm`, file]) {
+    try { if (fs.existsSync(f)) fs.unlinkSync(f); } catch {}
+  }
+  return true;
 }
 
 export function getStoreByEmail(email: string): StoreInfo | null {

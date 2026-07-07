@@ -11,6 +11,17 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   const settings = getSettings(db);
   const branches = getBranches(true, db);
 
+  // Tienda en pausa: no se muestra el catálogo ni se toman pedidos.
+  if (settings.paused === "1") {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-neutral-50 px-6 text-center text-neutral-700">
+        <span className="text-5xl">🛠️</span>
+        <h1 className="text-2xl font-bold">{settings.store_name || "Esta tienda"} no está disponible</h1>
+        <p className="max-w-sm text-neutral-500">Estamos haciendo cambios y volvemos en un ratito. ¡Gracias por tu paciencia!</p>
+      </div>
+    );
+  }
+
   // No exponer secretos al cliente; solo flags de integraciones activas.
   const { mp_access_token, afip_access_token, ...publicSettings } = settings;
   void afip_access_token;

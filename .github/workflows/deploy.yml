@@ -32,7 +32,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
 
-      - name: Deploy por SSH (rsync) + reinicio
+      - name: Deploy por SSH (tar) + reinicio
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
@@ -45,16 +45,10 @@ jobs:
           chmod 600 ~/.ssh/id_deploy
           SSHOPT="-i ~/.ssh/id_deploy -p $SSH_PORT -o StrictHostKeyChecking=accept-new"
 
-          # Sube todo .next/standalone/ (incluye .next/static y public por postbuild).
-          # --delete limpia lo viejo (evita chunks huérfanos), sin tocar datos/subidas.
-          rsync -az --delete \
-            --exclude 'data/' \
-            --exclude 'public/uploads/' \
-            --exclude 'tmp/' \
-            -e "ssh $SSHOPT" \
-            .next/standalone/ \
-            "$SSH_USER@$SSH_HOST:$APP_PATH/"
-
-          # Reinicio de la app (Passenger detecta este archivo).
-          ssh $SSHOPT "$SSH_USER@$SSH_HOST" "mkdir -p '$APP_PATH/tmp' && touch '$APP_PATH/tmp/restart.txt'"
+          # Empaqueta el build (.next/standalone incluye .next/static y public por
+          # postbuild) y lo extrae en el servidor. Solo necesita tar+ssh en el
+          # remoto (no rsync). Limpiamos .next viejo para no dejar chunks huérfanos,
+          # sin tocar datos ni uploads (que viven fuera de APP_PATH).
+          tar czf - -C .next/standalone . | ssh $SSHOPT "$SSH_USER@$SSH_HOST" \
+            "cd '$APP_PATH' && rm -rf .next server.js && tar xzf - && mkdir -p tmp && touch tmp/restart.txt && echo DEPLOY-OK"
           rm -f ~/.ssh/id_deploy

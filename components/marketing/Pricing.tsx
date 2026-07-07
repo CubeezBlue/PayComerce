@@ -24,7 +24,7 @@ export default function Pricing() {
   }
 
   return (
-    <div style={{ ["--pc" as string]: "#4f46e5", ["--pc2" as string]: "#7c3aed" }} className="min-h-screen bg-white text-neutral-900">
+    <div data-rev="2" style={{ ["--pc" as string]: "#4f46e5", ["--pc2" as string]: "#7c3aed" }} className="min-h-screen bg-white text-neutral-900">
       {/* Nav */}
       <header className="sticky top-0 z-30 border-b border-neutral-100 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">

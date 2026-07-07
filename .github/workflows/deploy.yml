@@ -50,9 +50,10 @@ jobs:
           ssh $SSHOPT "$SSH_USER@$SSH_HOST" "echo CONECTADO-DESDE-ACTIONS"
 
           # Empaqueta el build (.next/standalone incluye .next/static y public por
-          # postbuild) y lo extrae en el servidor. Solo necesita tar+ssh en el
-          # remoto (no rsync). Limpiamos .next viejo para no dejar chunks huérfanos,
-          # sin tocar datos ni uploads (que viven fuera de APP_PATH).
+          # postbuild) y lo extrae ENCIMA en el servidor (sin borrar el .next viejo:
+          # así los workers que aún no reiniciaron siguen sirviendo sus chunks y no
+          # hay 404 durante la transición; los chunks viejos quedan huérfanos, inofensivos).
+          # Solo necesita tar+ssh en el remoto (no rsync).
           tar czf - -C .next/standalone . | ssh $SSHOPT "$SSH_USER@$SSH_HOST" \
-            "cd '$APP_PATH' && rm -rf .next server.js && tar xzf - && mkdir -p tmp && touch tmp/restart.txt && echo DEPLOY-OK"
+            "cd '$APP_PATH' && tar xzf - && mkdir -p tmp && touch tmp/restart.txt && echo DEPLOY-OK"
           rm -f ~/.ssh/id_deploy

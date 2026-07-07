@@ -1,4 +1,4 @@
-import { getSettings, getBranches, getDeliveryZones } from "@/lib/db";
+import { getSettings, getBranches, getDeliveryBands } from "@/lib/db";
 import SiteShell from "@/components/SiteShell";
 import { hasAddon } from "@/lib/plans";
 import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
@@ -29,13 +29,13 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   publicSettings.mp_enabled = hasAddon(settings, "mp") && mp_access_token ? "1" : "";
   // Factura: requiere la integración de ARCA contratada
   publicSettings.arca_enabled = hasAddon(settings, "arca") ? "1" : "";
-  // Delivery por zonas: requiere la integración contratada
+  // Delivery por radio de cobertura: requiere la integración contratada
   const deliveryOn = hasAddon(settings, "delivery");
   publicSettings.delivery_enabled = deliveryOn ? "1" : "";
-  const zones = deliveryOn ? getDeliveryZones(true, db) : [];
+  const bands = deliveryOn ? getDeliveryBands(db) : [];
 
   return (
-    <SiteShell settings={publicSettings} branches={branches} zones={zones} base={base}>
+    <SiteShell settings={publicSettings} branches={branches} bands={bands} base={base}>
       {children}
     </SiteShell>
   );

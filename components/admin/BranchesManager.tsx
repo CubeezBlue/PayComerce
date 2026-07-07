@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { Branch } from "@/lib/types";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 
-type Draft = { id?: number; name: string; address: string; whatsapp_number: string; active: boolean };
-const empty: Draft = { name: "", address: "", whatsapp_number: "", active: true };
+type Draft = { id?: number; name: string; address: string; whatsapp_number: string; active: boolean; lat: number | null; lon: number | null };
+const empty: Draft = { name: "", address: "", whatsapp_number: "", active: true, lat: null, lon: null };
 
 export default function BranchesManager() {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -33,6 +33,8 @@ export default function BranchesManager() {
         address: editing.address,
         whatsapp_number: editing.whatsapp_number,
         active: editing.active,
+        lat: editing.lat,
+        lon: editing.lon,
       }),
     });
     setSaving(false);
@@ -82,7 +84,7 @@ export default function BranchesManager() {
               <p className="mt-3 text-sm text-neutral-500">💬 {b.whatsapp_number || "Usa el WhatsApp general"}</p>
               <div className="mt-4 flex gap-3 text-sm">
                 <button
-                  onClick={() => setEditing({ id: b.id, name: b.name, address: b.address, whatsapp_number: b.whatsapp_number, active: !!b.active })}
+                  onClick={() => setEditing({ id: b.id, name: b.name, address: b.address, whatsapp_number: b.whatsapp_number, active: !!b.active, lat: b.lat, lon: b.lon })}
                   className="font-semibold text-[var(--brand)] hover:underline"
                 >
                   Editar
@@ -106,8 +108,12 @@ export default function BranchesManager() {
                   <AddressAutocomplete
                     value={editing.address}
                     onChange={(v) => setEditing({ ...editing, address: v })}
+                    onPick={(p) => setEditing((e) => (e ? { ...e, address: p.label, lat: p.lat, lon: p.lon } : e))}
                     placeholder="Escribí la calle y elegí del mapa"
                   />
+                  <span className="mt-1 block text-xs text-neutral-400">
+                    {editing.lat != null ? "📍 Ubicación fijada para el delivery por zona." : "Elegí la dirección del mapa para habilitar el delivery por radio."}
+                  </span>
                 </div>
               </label>
               <Field label="WhatsApp de la sucursal" value={editing.whatsapp_number} onChange={(v) => setEditing({ ...editing, whatsapp_number: v })} placeholder="Vacío = usa el general" />

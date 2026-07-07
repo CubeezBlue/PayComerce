@@ -9,10 +9,12 @@ type Suggestion = { label: string; lat: string; lon: string };
 export default function AddressAutocomplete({
   value,
   onChange,
+  onPick,
   placeholder = "Dirección de entrega",
 }: {
   value: string;
   onChange: (v: string) => void;
+  onPick?: (p: { label: string; lat: number; lon: number }) => void;
   placeholder?: string;
 }) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -57,6 +59,7 @@ export default function AddressAutocomplete({
     onChange(s.label);
     setChosen(s);
     setOpen(false);
+    onPick?.({ label: s.label, lat: Number(s.lat), lon: Number(s.lon) });
   }
 
   return (

@@ -19,6 +19,17 @@ export type Branch = {
   whatsapp_number: string;
   active: number;
   position: number;
+  lat: number | null;
+  lon: number | null;
+};
+
+export type DeliveryBand = {
+  id: number;
+  branch_id: number;
+  max_km: number;
+  cost: number;
+  min_order: number;
+  position: number;
 };
 
 export type BranchStock = { branch_id: number; stock: number | null };

@@ -9,9 +9,11 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const b = await req.json();
   const name = String(b.name ?? "").trim();
   if (!name) return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 });
+  const lat = b.lat != null && b.lat !== "" ? Number(b.lat) : null;
+  const lon = b.lon != null && b.lon !== "" ? Number(b.lon) : null;
   const info = db
-    .prepare("UPDATE branches SET name = ?, address = ?, whatsapp_number = ?, active = ? WHERE id = ?")
-    .run(name, String(b.address ?? ""), String(b.whatsapp_number ?? ""), b.active === false || b.active === 0 ? 0 : 1, Number(id));
+    .prepare("UPDATE branches SET name = ?, address = ?, whatsapp_number = ?, active = ?, lat = ?, lon = ? WHERE id = ?")
+    .run(name, String(b.address ?? ""), String(b.whatsapp_number ?? ""), b.active === false || b.active === 0 ? 0 : 1, lat, lon, Number(id));
   if (info.changes === 0) return NextResponse.json({ error: "Sucursal no encontrada" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

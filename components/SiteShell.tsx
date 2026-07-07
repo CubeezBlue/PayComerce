@@ -8,7 +8,7 @@ import BranchModal from "./BranchModal";
 import { formatPrice } from "@/lib/format";
 import { resolveTheme } from "@/lib/theme";
 import { parseWeek } from "@/lib/hours";
-import { Branch, DeliveryZone } from "@/lib/types";
+import { Branch, DeliveryBand } from "@/lib/types";
 
 type Settings = Record<string, string>;
 
@@ -26,13 +26,13 @@ function FloatingBar({ currency }: { currency: string }) {
   );
 }
 
-function Overlays({ settings, branches, zones }: { settings: Settings; branches: Branch[]; zones: DeliveryZone[] }) {
+function Overlays({ settings, branches, bands }: { settings: Settings; branches: Branch[]; bands: DeliveryBand[] }) {
   const { checkoutOpen } = useCart();
   const currency = settings.currency || "$";
   return (
     <>
       <CartDrawer currency={currency} />
-      {checkoutOpen && <Checkout settings={settings} branches={branches} zones={zones} />}
+      {checkoutOpen && <Checkout settings={settings} branches={branches} bands={bands} />}
       <BranchModal branches={branches} />
       <FloatingBar currency={currency} />
     </>
@@ -42,13 +42,13 @@ function Overlays({ settings, branches, zones }: { settings: Settings; branches:
 export default function SiteShell({
   settings,
   branches,
-  zones = [],
+  bands = [],
   base = "",
   children,
 }: {
   settings: Settings;
   branches: Branch[];
-  zones?: DeliveryZone[];
+  bands?: DeliveryBand[];
   base?: string;
   children: React.ReactNode;
 }) {
@@ -63,7 +63,7 @@ export default function SiteShell({
         <Header storeName={storeName} logoUrl={settings.logo_url} branches={branches} base={base} />
         <main className="flex-1">{children}</main>
         <Footer storeName={storeName} base={base} />
-        <Overlays settings={settings} branches={branches} zones={zones} />
+        <Overlays settings={settings} branches={branches} bands={bands} />
       </div>
     </CartProvider>
   );

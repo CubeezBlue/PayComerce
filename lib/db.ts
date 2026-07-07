@@ -58,6 +58,14 @@ CREATE TABLE IF NOT EXISTS delivery_zones (
   active INTEGER NOT NULL DEFAULT 1,
   position INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS delivery_bands (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  branch_id INTEGER NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+  max_km REAL NOT NULL DEFAULT 0,
+  cost REAL NOT NULL DEFAULT 0,
+  min_order REAL NOT NULL DEFAULT 0,
+  position INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS option_groups (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -111,6 +119,11 @@ CREATE TABLE IF NOT EXISTS orders (
   addCol("invoice_number", "TEXT NOT NULL DEFAULT ''");
   addCol("invoice_type", "TEXT NOT NULL DEFAULT ''");
   addCol("invoice_demo", "INTEGER NOT NULL DEFAULT 0");
+
+  // Migración: ubicación de la sucursal (centro de cobertura de delivery)
+  const bcols = (db.prepare("PRAGMA table_info(branches)").all() as { name: string }[]).map((c) => c.name);
+  if (!bcols.includes("lat")) db.exec("ALTER TABLE branches ADD COLUMN lat REAL");
+  if (!bcols.includes("lon")) db.exec("ALTER TABLE branches ADD COLUMN lon REAL");
 }
 
 // Defaults comunes a toda tienda nueva
@@ -376,9 +389,10 @@ export type Product = {
   id: number; category_id: number | null; name: string; description: string;
   price: number; image_url: string; stock: number | null; active: number; position: number;
 };
-export type Branch = { id: number; name: string; address: string; whatsapp_number: string; active: number; position: number };
+export type Branch = { id: number; name: string; address: string; whatsapp_number: string; active: number; position: number; lat: number | null; lon: number | null };
 export type BranchStock = { branch_id: number; stock: number | null };
 export type DeliveryZone = { id: number; name: string; cost: number; min_order: number; active: number; position: number };
+export type DeliveryBand = { id: number; branch_id: number; max_km: number; cost: number; min_order: number; position: number };
 export type OptionItem = { id: number; group_id: number; name: string; price: number; position: number };
 export type OptionGroup = { id: number; product_id: number; name: string; min_select: number; max_select: number; position: number; options: OptionItem[] };
 export type StoreProduct = Product & { branches: BranchStock[]; optionGroups: OptionGroup[] };
@@ -429,6 +443,29 @@ export function getBranches(onlyActive = false, database: DB = db): Branch[] {
 export function getDeliveryZones(onlyActive = false, database: DB = db): DeliveryZone[] {
   const where = onlyActive ? "WHERE active = 1" : "";
   return database.prepare(`SELECT * FROM delivery_zones ${where} ORDER BY position, id`).all() as DeliveryZone[];
+}
+
+// Franjas de cobertura por radio (delivery por sucursal).
+export function getDeliveryBands(database: DB = db): DeliveryBand[] {
+  return database.prepare("SELECT * FROM delivery_bands ORDER BY branch_id, max_km, id").all() as DeliveryBand[];
+}
+
+// Reemplaza todas las franjas de una sucursal.
+export function saveDeliveryBands(branchId: number, bands: { max_km: number; cost: number; min_order?: number }[], database: DB = db) {
+  const del = database.prepare("DELETE FROM delivery_bands WHERE branch_id = ?");
+  const ins = database.prepare("INSERT INTO delivery_bands (branch_id, max_km, cost, min_order, position) VALUES (?, ?, ?, ?, ?)");
+  const tx = database.transaction(() => {
+    del.run(branchId);
+    bands
+      .filter((b) => Number(b.max_km) > 0)
+      .sort((a, b) => a.max_km - b.max_km)
+      .forEach((b, i) => ins.run(branchId, Number(b.max_km) || 0, Number(b.cost) || 0, Number(b.min_order) || 0, i));
+  });
+  tx();
+}
+
+export function setBranchLocation(branchId: number, lat: number | null, lon: number | null, database: DB = db) {
+  database.prepare("UPDATE branches SET lat = ?, lon = ? WHERE id = ?").run(lat, lon, branchId);
 }
 
 export function getProductsWithBranches(onlyActive = false, database: DB = db): StoreProduct[] {

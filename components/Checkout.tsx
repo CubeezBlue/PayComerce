@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { useCart } from "./CartContext";
-import { Branch, DeliveryZone } from "@/lib/types";
+import { Branch, DeliveryBand } from "@/lib/types";
+import { distanceKm, bandForDistance } from "@/lib/geo";
 import AddressAutocomplete from "./AddressAutocomplete";
 
 type Settings = Record<string, string>;
@@ -15,7 +16,7 @@ function orderCode() {
   return "PC-" + Math.random().toString(36).slice(2, 6).toUpperCase() + Date.now().toString().slice(-4);
 }
 
-export default function Checkout({ settings, branches, zones = [] }: { settings: Settings; branches: Branch[]; zones?: DeliveryZone[] }) {
+export default function Checkout({ settings, branches, bands = [] }: { settings: Settings; branches: Branch[]; bands?: DeliveryBand[] }) {
   const { lines, subtotal, clear, setCheckoutOpen, branchId, setBranchModalOpen } = useCart();
   const onClose = () => setCheckoutOpen(false);
   const onDone = () => { clear(); setCheckoutOpen(false); };
@@ -24,8 +25,6 @@ export default function Checkout({ settings, branches, zones = [] }: { settings:
   const multiBranch = branches.length > 1;
   const deliveryCost = Number(settings.delivery_cost || 0);
   const onlineEnabled = settings.online_payment === "1";
-  // Delivery por zonas: activo si el comercio tiene la integración y cargó zonas.
-  const zonesOn = settings.delivery_enabled === "1" && zones.length > 0;
 
   const [step, setStep] = useState<"form" | "paying" | "success">("form");
   const [stockError, setStockError] = useState<string[]>([]);
@@ -34,25 +33,35 @@ export default function Checkout({ settings, branches, zones = [] }: { settings:
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [zoneId, setZoneId] = useState<number | null>(null);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [notes, setNotes] = useState("");
   const [wantInvoice, setWantInvoice] = useState(false);
   const [cuit, setCuit] = useState("");
   const [code] = useState(orderCode);
 
-  const selectedZone = zonesOn ? zones.find((z) => z.id === zoneId) ?? null : null;
-  const shipping = delivery === "delivery" ? (zonesOn ? (selectedZone?.cost ?? 0) : deliveryCost) : 0;
+  // Delivery por radio: activo si hay integración, la sucursal está ubicada y tiene franjas.
+  const branchBands = branch ? bands.filter((b) => b.branch_id === branch.id) : [];
+  const radiusOn = settings.delivery_enabled === "1" && !!branch?.lat && !!branch?.lon && branchBands.length > 0;
+
+  // Distancia del cliente a la sucursal y franja aplicable.
+  const distance = radiusOn && coords && branch?.lat != null && branch?.lon != null
+    ? distanceKm(branch.lat, branch.lon, coords.lat, coords.lon)
+    : null;
+  const band = distance != null ? bandForDistance(distance, branchBands) : null;
+  const outOfCoverage = radiusOn && distance != null && band === null; // dirección elegida pero fuera de cobertura
+  const needsAddressPick = radiusOn && delivery === "delivery" && coords === null; // falta elegir del mapa
+
+  const shipping = delivery === "delivery" ? (radiusOn ? (band?.cost ?? 0) : deliveryCost) : 0;
   const total = subtotal + shipping;
-  // Pedido mínimo de la zona no alcanzado
-  const belowMin = !!selectedZone && selectedZone.min_order > 0 && subtotal < selectedZone.min_order;
+  const belowMin = !!band && band.min_order > 0 && subtotal < band.min_order;
 
   const errors: string[] = [];
   if (!name.trim()) errors.push("nombre");
   if (!phone.trim()) errors.push("teléfono");
   if (delivery === "delivery" && !address.trim()) errors.push("dirección");
-  if (delivery === "delivery" && zonesOn && !selectedZone) errors.push("zona de envío");
+  if (delivery === "delivery" && needsAddressPick) errors.push("elegí tu dirección del mapa");
   if (wantInvoice && cuit.trim().length < 8) errors.push("CUIT/DNI");
-  const valid = errors.length === 0 && !belowMin;
+  const valid = errors.length === 0 && !belowMin && !(delivery === "delivery" && outOfCoverage);
 
   function buildWhatsAppText() {
     const msg: string[] = [];
@@ -70,7 +79,7 @@ export default function Checkout({ settings, branches, zones = [] }: { settings:
     msg.push("");
     msg.push(`Cliente: ${name}`);
     msg.push(`Teléfono: ${phone}`);
-    msg.push(delivery === "delivery" ? `Entrega: Delivery — ${address}${selectedZone ? ` (Zona: ${selectedZone.name})` : ""}` : "Entrega: Retiro en local");
+    msg.push(delivery === "delivery" ? `Entrega: Delivery — ${address}${distance != null ? ` (~${distance.toFixed(1)} km)` : ""}` : "Entrega: Retiro en local");
     const pLabel = payment === "online" ? "Pagado online ✅" : payment === "cash" ? "Efectivo" : "Transferencia";
     msg.push(`Pago: ${pLabel}`);
     if (wantInvoice) msg.push(`Factura: Sí (CUIT/DNI ${cuit})`);
@@ -90,7 +99,7 @@ export default function Checkout({ settings, branches, zones = [] }: { settings:
       branch_id: branch?.id ?? null,
       customer_name: name,
       phone,
-      address: delivery === "delivery" && selectedZone ? `${address} (Zona: ${selectedZone.name})` : address,
+      address: delivery === "delivery" && distance != null ? `${address} (~${distance.toFixed(1)} km)` : address,
       delivery,
       payment,
       notes,
@@ -211,28 +220,30 @@ export default function Checkout({ settings, branches, zones = [] }: { settings:
               <Input placeholder="Nombre y apellido" value={name} onChange={setName} />
               <Input placeholder="Teléfono / WhatsApp" value={phone} onChange={setPhone} />
               {delivery === "delivery" && (
-                <AddressAutocomplete value={address} onChange={setAddress} placeholder="Dirección de entrega" />
-              )}
-              {delivery === "delivery" && zonesOn && (
-                <Field label="Zona de envío">
-                  <select
-                    value={zoneId ?? ""}
-                    onChange={(e) => setZoneId(e.target.value ? Number(e.target.value) : null)}
-                    className="w-full rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm outline-none focus:border-[var(--brand)]"
-                  >
-                    <option value="">Elegí tu zona…</option>
-                    {zones.map((z) => (
-                      <option key={z.id} value={z.id}>
-                        {z.name} — {z.cost > 0 ? formatPrice(z.cost, currency) : "Gratis"}
-                      </option>
-                    ))}
-                  </select>
-                  {belowMin && selectedZone && (
-                    <p className="mt-1 text-xs text-red-500">
-                      El pedido mínimo para {selectedZone.name} es {formatPrice(selectedZone.min_order, currency)}.
+                <div>
+                  <AddressAutocomplete
+                    value={address}
+                    onChange={(v) => { setAddress(v); setCoords(null); }}
+                    onPick={(p) => { setAddress(p.label); setCoords({ lat: p.lat, lon: p.lon }); }}
+                    placeholder="Dirección de entrega"
+                  />
+                  {radiusOn && needsAddressPick && (
+                    <p className="mt-1 text-xs text-neutral-400">Elegí tu dirección de la lista para calcular el envío.</p>
+                  )}
+                  {radiusOn && distance != null && band && (
+                    <p className="mt-1 text-xs text-green-600">
+                      ✓ Entrás en la cobertura ({distance.toFixed(1)} km). Envío: {band.cost > 0 ? formatPrice(band.cost, currency) : "Gratis"}.
                     </p>
                   )}
-                </Field>
+                  {radiusOn && outOfCoverage && (
+                    <p className="mt-1 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 ring-1 ring-red-200">
+                      Esa dirección está fuera de la zona de cobertura de {branch?.name}. Podés elegir <b>Retiro</b> o cambiar la dirección.
+                    </p>
+                  )}
+                  {belowMin && band && (
+                    <p className="mt-1 text-xs text-red-500">El pedido mínimo para tu zona es {formatPrice(band.min_order, currency)}.</p>
+                  )}
+                </div>
               )}
 
               {/* Pago */}

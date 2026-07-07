@@ -1,0 +1,60 @@
+name: Build & Deploy a Hostinger
+
+# Compila en Linux (GitHub, recursos de sobra) y sube SOLO el build ya armado por
+# SSH. Hostinger no compila nada y se reinicia solo (touch tmp/restart.txt).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar (standalone con binario Linux de better-sqlite3)
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+
+      - name: Deploy por SSH (rsync) + reinicio
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          APP_PATH: ${{ secrets.APP_PATH }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          SSHOPT="-i ~/.ssh/id_deploy -p $SSH_PORT -o StrictHostKeyChecking=accept-new"
+
+          # Sube todo .next/standalone/ (incluye .next/static y public por postbuild).
+          # --delete limpia lo viejo (evita chunks huérfanos), sin tocar datos/subidas.
+          rsync -az --delete \
+            --exclude 'data/' \
+            --exclude 'public/uploads/' \
+            --exclude 'tmp/' \
+            -e "ssh $SSHOPT" \
+            .next/standalone/ \
+            "$SSH_USER@$SSH_HOST:$APP_PATH/"
+
+          # Reinicio de la app (Passenger detecta este archivo).
+          ssh $SSHOPT "$SSH_USER@$SSH_HOST" "mkdir -p '$APP_PATH/tmp' && touch '$APP_PATH/tmp/restart.txt'"
+          rm -f ~/.ssh/id_deploy

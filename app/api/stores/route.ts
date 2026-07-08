@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listStores, createStore, storeExists, isValidSlug, emailExists } from "@/lib/db";
+import { listStores, createStore, storeExists, isValidSlug, emailExists, setStoreSettings } from "@/lib/db";
 import { hashPassword, sessionToken, SESSION_COOKIE, validatePassword, isValidEmail } from "@/lib/auth";
 import { PLANS } from "@/lib/plans";
+import { RUBROS } from "@/lib/rubros";
 
 export function GET() {
   return NextResponse.json(listStores());
@@ -28,6 +29,24 @@ export async function POST(req: NextRequest) {
   if (storeExists(slug)) return NextResponse.json({ error: "Esa dirección ya está en uso" }, { status: 409 });
 
   const store = createStore(slug, name, new Date().toISOString(), hashPassword(password), plan, email);
+
+  // Datos extra del asistente: rubro (con sus textos), WhatsApp y contacto del dueño.
+  const extra: Record<string, string> = {};
+  const whatsapp = String(b.whatsapp_number ?? "").trim();
+  if (whatsapp) extra.whatsapp_number = whatsapp;
+  const ownerName = String(b.owner_name ?? "").trim();
+  if (ownerName) extra.owner_name = ownerName;
+  const ownerPhone = String(b.owner_phone ?? "").trim();
+  if (ownerPhone) extra.owner_phone = ownerPhone;
+  const rubro = RUBROS.find((r) => r.key === b.business_type);
+  if (rubro) {
+    extra.business_type = rubro.key;
+    extra.tagline = rubro.tagline;
+    extra.hero_subtitle = rubro.hero_subtitle;
+    extra.about_text = rubro.about_text;
+    extra.about_features = JSON.stringify(rubro.features);
+  }
+  if (Object.keys(extra).length) setStoreSettings(slug, extra);
 
   const res = NextResponse.json(store, { status: 201 });
   // Auto-login: como acaban de definir su contraseña, los dejamos logueados

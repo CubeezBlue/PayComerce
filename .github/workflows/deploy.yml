@@ -57,3 +57,14 @@ jobs:
           tar czf - -C .next/standalone . | ssh $SSHOPT "$SSH_USER@$SSH_HOST" \
             "cd '$APP_PATH' && tar xzf - && mkdir -p tmp && touch tmp/restart.txt && echo DEPLOY-OK"
           rm -f ~/.ssh/id_deploy
+
+      # Fuerza el rolling restart de Passenger: le mandamos tráfico para que cada
+      # worker tome una request y se reinicie con el build nuevo (evita el "flapeo"
+      # y el reinicio manual en hPanel).
+      - name: Converger el reinicio
+        run: |
+          echo "Forzando que todos los workers tomen el build nuevo…"
+          for i in $(seq 1 50); do
+            curl -s -o /dev/null -m 10 "https://paycomerce.com/api/stores?_r=$i" || true
+          done
+          echo "Listo."

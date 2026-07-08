@@ -7,6 +7,7 @@ import { resolveTheme } from "@/lib/theme";
 import { RUBROS, parseFeatures, Feature } from "@/lib/rubros";
 import { hasAddon } from "@/lib/plans";
 import { parseWeek, WeekHours, DAY_NAMES } from "@/lib/hours";
+import StoreControls from "./StoreControls";
 
 type Settings = Record<string, string>;
 
@@ -479,6 +480,8 @@ export default function SettingsForm({ initial, base = "", welcome = false }: { 
         </button>
         {saved && <span className="text-sm font-medium text-green-600">✅ Guardado. Recargá la tienda para ver los cambios.</span>}
       </div>
+
+      <StoreControls initialPaused={initial.paused === "1"} />
     </div>
   );
 }

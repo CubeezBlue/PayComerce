@@ -6,13 +6,25 @@ import { formatPrice } from "@/lib/format";
 
 const ALL_FEATURES: Feature[] = ["variants", "excel", "price_adjust", "orders_board", "dashboard_full", "branches", "reports"];
 
-export default function PlanManager({ initial, base = "" }: { initial: Record<string, string>; base?: string }) {
+export default function PlanManager({ initial, base = "", subState = "trial", trialEndsAt = "", billingEnabled = false }: { initial: Record<string, string>; base?: string; subState?: "trial" | "active" | "expired" | "past_due"; trialEndsAt?: string; billingEnabled?: boolean }) {
   const [plan, setPlan] = useState(initial.plan || "empresa");
   const [addons, setAddons] = useState<Record<string, boolean>>(
     Object.fromEntries(ADDONS.map((a) => [a.key, initial[`addon_${a.key}`] === "1"]))
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [subBusy, setSubBusy] = useState(false);
+
+  const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((Date.parse(trialEndsAt) - Date.now()) / 86400000)) : 0;
+
+  async function subscribe() {
+    setSubBusy(true);
+    const res = await fetch("/api/subscription/start", { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setSubBusy(false);
+    if (res.ok && data.init_point) window.location.href = data.init_point;
+    else alert(data.error || "No se pudo iniciar la suscripción.");
+  }
 
   // Estado de credenciales cargadas (para avisar qué falta para que la integración cobre/facture de verdad).
   const configured: Record<string, boolean> = {
@@ -41,6 +53,36 @@ export default function PlanManager({ initial, base = "" }: { initial: Record<st
         <h1 className="text-2xl font-bold">Mi plan</h1>
         <p className="text-neutral-500">Elegí tu plan y las integraciones. Se activan o desactivan funciones al instante.</p>
       </div>
+
+      {/* Estado de suscripción */}
+      {billingEnabled && (
+        subState === "active" ? (
+          <div className="rounded-2xl bg-green-50 p-5 ring-1 ring-green-200">
+            <p className="font-semibold text-green-800">✅ Suscripción activa</p>
+            <p className="text-sm text-green-700">Tu plan {PLANS[plan as keyof typeof PLANS].name} está al día. Gracias por usar PayComerce.</p>
+          </div>
+        ) : subState === "trial" ? (
+          <div className="flex flex-col gap-3 rounded-2xl bg-[var(--brand)]/5 p-5 ring-1 ring-[var(--brand)]/20 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">🎁 Prueba gratis — te quedan {trialDaysLeft} día{trialDaysLeft === 1 ? "" : "s"}</p>
+              <p className="text-sm text-neutral-600">Activá tu suscripción ahora así tu tienda no se corta cuando termine la prueba. Con débito automático mensual; podés cancelar cuando quieras.</p>
+            </div>
+            <button onClick={subscribe} disabled={subBusy} className="shrink-0 rounded-full bg-[#009ee3] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95 disabled:opacity-60">
+              {subBusy ? "Abriendo…" : "Activar suscripción"}
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 rounded-2xl bg-red-50 p-5 ring-1 ring-red-200 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold text-red-800">⚠️ Tu tienda está pausada por falta de pago</p>
+              <p className="text-sm text-red-700">{subState === "expired" ? "Terminó tu prueba gratis." : "No pudimos cobrar tu suscripción."} Activá el pago para volver a estar online.</p>
+            </div>
+            <button onClick={subscribe} disabled={subBusy} className="shrink-0 rounded-full bg-[#009ee3] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95 disabled:opacity-60">
+              {subBusy ? "Abriendo…" : "Suscribirme y reactivar"}
+            </button>
+          </div>
+        )
+      )}
 
       {/* Planes */}
       <div className="grid gap-4 lg:grid-cols-3">

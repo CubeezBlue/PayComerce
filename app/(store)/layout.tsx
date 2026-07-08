@@ -1,4 +1,4 @@
-import { getSettings, getBranches, getDeliveryBands } from "@/lib/db";
+import { getSettings, getBranches, getDeliveryBands, subscriptionState } from "@/lib/db";
 import SiteShell from "@/components/SiteShell";
 import { hasAddon } from "@/lib/plans";
 import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
@@ -11,8 +11,12 @@ export default async function StoreLayout({ children }: { children: React.ReactN
   const settings = getSettings(db);
   const branches = getBranches(true, db);
 
-  // Tienda en pausa: no se muestra el catálogo ni se toman pedidos.
-  if (settings.paused === "1") {
+  // Suscripción vencida/impaga: se bloquea el storefront (el admin sigue para pagar).
+  const subState = subscriptionState(settings);
+  const subBlocked = subState === "expired" || subState === "past_due";
+
+  // Tienda en pausa o suscripción vencida: no se muestra el catálogo ni se toman pedidos.
+  if (settings.paused === "1" || subBlocked) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-neutral-50 px-6 text-center text-neutral-700">
         <span className="text-5xl">🛠️</span>

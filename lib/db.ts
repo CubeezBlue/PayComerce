@@ -271,6 +271,7 @@ export type StoreOverview = StoreInfo & {
   mpConfigured: boolean;
   paused: boolean;      // tienda en pausa (no operativa)
   email: string | null;
+  subState: "trial" | "active" | "expired" | "past_due";
 };
 
 export function listStoresWithInfo(): StoreOverview[] {
@@ -294,9 +295,10 @@ export function listStoresWithInfo(): StoreOverview[] {
         lastOrder: agg.last,
         mpConfigured: !!settings.mp_access_token?.trim(),
         paused: settings.paused === "1",
+        subState: subscriptionState(settings),
       };
     } catch {
-      return { ...base, plan: "—", addons: [], products: 0, orders: 0, revenue: 0, lastOrder: null, mpConfigured: false, paused: false };
+      return { ...base, plan: "—", addons: [], products: 0, orders: 0, revenue: 0, lastOrder: null, mpConfigured: false, paused: false, subState: "trial" as const };
     }
   });
 }
@@ -374,11 +376,28 @@ export function createStore(slug: string, name: string, createdAt: string, passw
   const setKey = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
   setKey.run("terms_accepted_at", createdAt);
   setKey.run("terms_version", TERMS_VERSION);
+  // Suscripción: arranca en prueba gratis por TRIAL_DAYS días.
+  const trialEnds = new Date(new Date(createdAt).getTime() + TRIAL_DAYS * 86400000).toISOString();
+  setKey.run("subscription_status", "trial");
+  setKey.run("trial_ends_at", trialEnds);
   return { slug, name, created_at: createdAt };
 }
 
 // Versión vigente de los Términos y la Política (coincide con "última actualización").
 export const TERMS_VERSION = "2026-07-07";
+export const TRIAL_DAYS = 14;
+
+// Estado de suscripción calculado (considera el vencimiento de la prueba).
+// Devuelve: 'trial' | 'active' | 'expired' (prueba vencida sin pago) | 'paused_billing'.
+export function subscriptionState(settings: Record<string, string>, now = Date.now()): "trial" | "active" | "expired" | "past_due" {
+  const st = settings.subscription_status || "trial";
+  if (st === "active") return "active";
+  if (st === "past_due") return "past_due";
+  // trial: activa hasta que venza
+  const ends = settings.trial_ends_at ? Date.parse(settings.trial_ends_at) : 0;
+  if (ends && now > ends) return "expired";
+  return "trial";
+}
 
 // Asegurar que 'demo' esté registrado (para el comercio de ejemplo existente)
 if (!storeExists("demo")) {

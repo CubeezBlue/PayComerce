@@ -16,9 +16,16 @@ export type OwnerStoreRow = {
   lastOrder: string | null;
   mpConfigured: boolean;
   paused: boolean;
+  subState: "trial" | "active" | "expired" | "past_due";
 };
 
 const PLAN_LABEL: Record<string, string> = { emprendedor: "Emprendedor", profesional: "Profesional", empresa: "Empresa" };
+const SUB: Record<string, { t: string; c: string }> = {
+  active: { t: "Suscripta", c: "bg-green-100 text-green-700" },
+  trial: { t: "Prueba", c: "bg-blue-100 text-blue-700" },
+  expired: { t: "Prueba vencida", c: "bg-red-100 text-red-700" },
+  past_due: { t: "Impaga", c: "bg-red-100 text-red-700" },
+};
 
 export default function OwnerStores({ stores }: { stores: OwnerStoreRow[] }) {
   const [busy, setBusy] = useState<string>("");
@@ -77,6 +84,7 @@ export default function OwnerStores({ stores }: { stores: OwnerStoreRow[] }) {
                 <td className="px-4 py-3">
                   <span className="rounded-full bg-[#4f46e5]/10 px-2 py-0.5 text-xs font-semibold text-[#4f46e5]">{PLAN_LABEL[s.plan] ?? s.plan}</span>
                   {s.addons.length > 0 && <span className="ml-1 text-xs text-neutral-400">+{s.addons.length}</span>}
+                  <span className={`ml-1 rounded-full px-2 py-0.5 text-xs font-semibold ${(SUB[s.subState] || SUB.trial).c}`}>{(SUB[s.subState] || SUB.trial).t}</span>
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">{s.products}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{s.orders}</td>

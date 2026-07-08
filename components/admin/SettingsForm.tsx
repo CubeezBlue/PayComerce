@@ -26,11 +26,18 @@ const FIELDS: { key: string; label: string; type?: string; hint?: string }[] = [
   { key: "delivery_cost", label: "Costo de envío", type: "number" },
 ];
 
-export default function SettingsForm({ initial, base = "", welcome = false }: { initial: Settings; base?: string; welcome?: boolean }) {
+export default function SettingsForm({ initial, base = "", welcome = false, mpOauthEnabled = false, mpResult = "" }: { initial: Settings; base?: string; welcome?: boolean; mpOauthEnabled?: boolean; mpResult?: string }) {
   // Solo mostramos la configuración de una integración si está activa (contratada
   // en "Mi plan" o incluida en el plan). Si no, ni aparece hasta que la habiliten.
   const mpActive = hasAddon(initial, "mp");
   const arcaActive = hasAddon(initial, "arca");
+  const mpConnected = initial.mp_connected === "1" || !!initial.mp_access_token?.trim();
+
+  async function disconnectMp() {
+    if (!confirm("¿Desconectar tu cuenta de Mercado Pago? Dejarás de cobrar online hasta que la conectes de nuevo.")) return;
+    await fetch("/api/mercadopago/oauth/disconnect", { method: "POST" });
+    window.location.href = `${base}/admin/configuracion`;
+  }
   const [values, setValues] = useState<Settings>({
     online_payment: "1",
     ...DEFAULT_PALETTE,
@@ -306,7 +313,35 @@ export default function SettingsForm({ initial, base = "", welcome = false }: { 
       {mpActive && (
       <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-black/5">
         <h2 className="font-bold">Cobros con Mercado Pago</h2>
-        <p className="text-sm text-neutral-500">
+
+        {mpResult === "ok" && <p className="mt-2 rounded-xl bg-green-50 px-4 py-2 text-sm text-green-700 ring-1 ring-green-200">✅ Conectaste tu cuenta de Mercado Pago.</p>}
+        {mpResult === "error" && <p className="mt-2 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700 ring-1 ring-red-200">No se pudo conectar. Probá de nuevo.</p>}
+        {mpResult === "cancel" && <p className="mt-2 rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-700 ring-1 ring-amber-200">Cancelaste la conexión con Mercado Pago.</p>}
+
+        {/* Conexión con un click (OAuth) — recomendado */}
+        {mpOauthEnabled && (
+          <div className="mt-3 rounded-xl border border-neutral-200 p-4">
+            {mpConnected ? (
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm font-medium text-green-700">✅ Cuenta de Mercado Pago conectada{initial.mp_user_id ? ` (ID ${initial.mp_user_id})` : ""}. Ya podés cobrar online.</p>
+                <button type="button" onClick={disconnectMp} className="shrink-0 rounded-full border border-neutral-300 px-4 py-2 text-sm font-semibold text-neutral-600 hover:bg-neutral-100">
+                  Desconectar
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-neutral-600">Conectá tu cuenta con un click, sin pegar tokens.</p>
+                <a href="/api/mercadopago/oauth/start" className="shrink-0 rounded-full bg-[#009ee3] px-5 py-2.5 text-center text-sm font-semibold text-white shadow-sm hover:brightness-95">
+                  Conectar con Mercado Pago
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+
+        <details className="mt-3">
+          <summary className="cursor-pointer text-sm font-medium text-neutral-500">Opción avanzada: pegar el Access Token a mano</summary>
+        <p className="mt-2 text-sm text-neutral-500">
           Pegá tu <b>Access Token</b> para cobrar de verdad. Si lo dejás vacío, el pago online funciona en modo demo (sin cobro).
         </p>
         <label className="mt-3 block">
@@ -323,6 +358,7 @@ export default function SettingsForm({ initial, base = "", welcome = false }: { 
           Lo sacás de mercadopago.com.ar → Tu negocio → Credenciales. Usá las de <b>prueba (TEST-…)</b> para testear y las de{" "}
           <b>producción</b> para cobrar en serio. {values.mp_access_token ? "✅ Configurado." : "⚠️ Sin configurar (modo demo)."}
         </p>
+        </details>
       </div>
       )}
 

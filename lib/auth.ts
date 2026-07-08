@@ -51,6 +51,22 @@ export function makeResetToken(slug: string, nowMs: number): string {
   return `${b64url(payload)}.${sig}`;
 }
 
+// ── OAuth de Mercado Pago: estado firmado para atar el callback al comercio ──
+export function signOauthState(slug: string): string {
+  const sig = crypto.createHmac("sha256", SECRET).update("mpoauth:" + slug).digest("hex");
+  return Buffer.from(slug).toString("base64url") + "." + sig;
+}
+
+export function readOauthState(state: string | undefined | null): string | null {
+  if (!state || !state.includes(".")) return null;
+  const [p, sig] = state.split(".");
+  let slug: string;
+  try { slug = Buffer.from(p, "base64url").toString(); } catch { return null; }
+  const expected = crypto.createHmac("sha256", SECRET).update("mpoauth:" + slug).digest("hex");
+  const a = Buffer.from(sig || ""), b = Buffer.from(expected);
+  return a.length === b.length && crypto.timingSafeEqual(a, b) ? slug : null;
+}
+
 // Devuelve el slug si el token es válido y no venció; si no, null.
 export function verifyResetToken(token: string | undefined, nowMs: number): string | null {
   if (!token || !token.includes(".")) return null;

@@ -347,6 +347,14 @@ export function setStorePasswordHash(slug: string, passwordHash: string): void {
   getStoreDb(slug).prepare("INSERT INTO settings (key, value) VALUES ('admin_password_hash', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").run(passwordHash);
 }
 
+// Guarda varias claves de settings de un comercio (por slug). Para OAuth de MP, etc.
+export function setStoreSettings(slug: string, kv: Record<string, string>): void {
+  const db = getStoreDb(slug);
+  const up = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+  const tx = db.transaction(() => { for (const [k, v] of Object.entries(kv)) up.run(k, v); });
+  tx();
+}
+
 export function createStore(slug: string, name: string, createdAt: string, passwordHash?: string, plan?: string, email?: string): StoreInfo {
   registry.prepare("INSERT INTO stores (slug, name, created_at, email) VALUES (?, ?, ?, ?)").run(slug, name, createdAt, email ? email.trim().toLowerCase() : null);
   const db = getStoreDb(slug); // crea y siembra la base del comercio

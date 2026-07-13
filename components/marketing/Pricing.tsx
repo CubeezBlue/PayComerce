@@ -5,7 +5,7 @@ import { useState } from "react";
 import { PLANS, PLAN_ORDER, FEATURE_LABELS, ADDONS, Feature } from "@/lib/plans";
 import { formatPrice } from "@/lib/format";
 
-const ALL: Feature[] = ["variants", "excel", "price_adjust", "orders_board", "dashboard_full", "branches", "reports"];
+const ALL: Feature[] = ["variants", "excel", "price_adjust", "orders_board", "dashboard_full", "branches"];
 const POPULAR = "profesional";
 
 const FAQ = [
@@ -184,7 +184,14 @@ export default function Pricing() {
                   {a.soon && <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-semibold text-neutral-500">Próximamente</span>}
                 </div>
                 <p className="text-sm text-neutral-500">{a.desc}</p>
-                <p className="mt-1 text-sm font-semibold text-[var(--pc)]">+{formatPrice(a.price)}/mes</p>
+                {a.features && (
+                  <ul className="mt-2 space-y-1">
+                    {a.features.map((f) => (
+                      <li key={f} className="flex gap-1.5 text-xs text-neutral-500"><span className="text-[var(--pc)]">✓</span>{f}</li>
+                    ))}
+                  </ul>
+                )}
+                {!a.soon && <p className="mt-1 text-sm font-semibold text-[var(--pc)]">+{formatPrice(a.price)}/mes</p>}
               </div>
             </div>
           ))}

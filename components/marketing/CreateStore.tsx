@@ -35,13 +35,12 @@ const PLAN_HIGHLIGHTS: Record<string, { blurb: string; features: string[] }> = {
     ],
   },
   empresa: {
-    blurb: "Todo incluido para crecer sin límites.",
+    blurb: "Multisucursal con pagos online incluidos.",
     features: [
       "Todo lo de Profesional, y además:",
       "Multisucursal (menú y stock por sucursal)",
-      "Reportes avanzados y listas de precio",
       "💳 Pagos online con Mercado Pago — incluido",
-      "🧾 Facturación electrónica (ARCA) — incluida",
+      "Sumás Caja, Equipo, ARCA o Delivery como adicionales",
     ],
   },
 };

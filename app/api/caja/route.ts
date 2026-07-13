@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cashReport, saveCashClosure, listCashClosures } from "@/lib/db";
+import { cashReport, saveCashClosure, listCashClosures, getSettings } from "@/lib/db";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
+import { getActor, actorCan } from "@/lib/actor";
+import { hasAddon } from "@/lib/plans";
 import { log } from "@/lib/log";
 
 function parseBranch(v: string | null): number | null {
@@ -11,8 +13,17 @@ function todayArg(): string {
   return new Date(Date.now() - 3 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
+// ¿El actor puede usar la caja? (permiso + adicional contratado)
+async function guardCaja(req: NextRequest) {
+  if (!hasAddon(getSettings(storeDbFromReq(req)), "caja")) return "El adicional de Caja no está activo";
+  if (!actorCan(await getActor(), "caja")) return "No tenés permiso para la caja";
+  return null;
+}
+
 // Reporte del día + últimos cierres.
-export function GET(req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const err = await guardCaja(req);
+  if (err) return NextResponse.json({ error: err }, { status: 403 });
   const db = storeDbFromReq(req);
   const day = req.nextUrl.searchParams.get("day") || todayArg();
   const branchId = parseBranch(req.nextUrl.searchParams.get("branch"));
@@ -21,6 +32,8 @@ export function GET(req: NextRequest) {
 
 // Guarda un cierre de caja (arqueo).
 export async function POST(req: NextRequest) {
+  const err = await guardCaja(req);
+  if (err) return NextResponse.json({ error: err }, { status: 403 });
   const db = storeDbFromReq(req);
   const b = await req.json();
   const day = String(b.day || todayArg()).slice(0, 10);

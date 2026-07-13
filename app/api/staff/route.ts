@@ -1,23 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listStaff, createStaff, getStaffByUsername } from "@/lib/db";
+import { listStaff, createStaff, getStaffByUsername, getSettings } from "@/lib/db";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
 import { getActor } from "@/lib/actor";
+import { hasAddon } from "@/lib/plans";
 import { hashPassword, validatePassword } from "@/lib/auth";
 import { PERMISSIONS, Permission } from "@/lib/permissions";
 import { log } from "@/lib/log";
 
-async function ownerOr403() {
+// Solo el dueño y con el adicional de Equipo activo.
+async function ownerWithEquipos(req: NextRequest) {
   const actor = await getActor();
-  return actor && actor.kind === "owner" ? actor : null;
+  if (!actor || actor.kind !== "owner") return false;
+  return hasAddon(getSettings(storeDbFromReq(req)), "equipos");
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await ownerOr403())) return NextResponse.json({ error: "Solo el dueño" }, { status: 403 });
+  if (!(await ownerWithEquipos(req))) return NextResponse.json({ error: "Solo el dueño con el adicional de Equipo" }, { status: 403 });
   return NextResponse.json(listStaff(storeDbFromReq(req)));
 }
 
 export async function POST(req: NextRequest) {
-  if (!(await ownerOr403())) return NextResponse.json({ error: "Solo el dueño" }, { status: 403 });
+  if (!(await ownerWithEquipos(req))) return NextResponse.json({ error: "Solo el dueño con el adicional de Equipo" }, { status: 403 });
   const db = storeDbFromReq(req);
   const b = await req.json();
   const name = String(b.name ?? "").trim();

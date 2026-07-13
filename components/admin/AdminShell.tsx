@@ -8,13 +8,13 @@ import { Permission } from "@/lib/permissions";
 const NAV: { href: string; label: string; icon: string; feature?: Feature; addon?: AddonKey; perm?: Permission; ownerOnly?: boolean }[] = [
   { href: "/admin", label: "Inicio", icon: "📊" },
   { href: "/admin/pedidos", label: "Pedidos", icon: "🧾", feature: "orders_board", perm: "pedidos" },
-  { href: "/admin/caja", label: "Caja", icon: "💰", feature: "dashboard_full", perm: "caja" },
+  { href: "/admin/caja", label: "Caja", icon: "💰", addon: "caja", perm: "caja" },
   { href: "/admin/productos", label: "Productos", icon: "📦", perm: "productos" },
   { href: "/admin/sucursales", label: "Sucursales", icon: "📍", feature: "branches", perm: "sucursales" },
   { href: "/admin/envios", label: "Envíos", icon: "🛵", addon: "delivery", perm: "envios" },
   { href: "/admin/precios", label: "Precios", icon: "📈", feature: "price_adjust", perm: "precios" },
   { href: "/admin/catalogo", label: "Excel", icon: "📄", feature: "excel", perm: "precios" },
-  { href: "/admin/equipo", label: "Equipo", icon: "👥", perm: "config", ownerOnly: true },
+  { href: "/admin/equipo", label: "Equipo", icon: "👥", addon: "equipos", perm: "config", ownerOnly: true },
   { href: "/admin/plan", label: "Mi plan", icon: "⭐", perm: "config" },
   { href: "/admin/configuracion", label: "Configuración", icon: "⚙️", perm: "config" },
 ];

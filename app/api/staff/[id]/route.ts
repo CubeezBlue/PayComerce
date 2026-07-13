@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateStaff, setStaffPassword, deleteStaff, getStaffById } from "@/lib/db";
+import { updateStaff, setStaffPassword, deleteStaff, getStaffById, getSettings } from "@/lib/db";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
 import { getActor } from "@/lib/actor";
+import { hasAddon } from "@/lib/plans";
 import { hashPassword, validatePassword } from "@/lib/auth";
 import { PERMISSIONS, Permission } from "@/lib/permissions";
 import { log } from "@/lib/log";
 
-async function isOwner() {
+async function ownerWithEquipos(req: NextRequest) {
   const actor = await getActor();
-  return !!actor && actor.kind === "owner";
+  if (!actor || actor.kind !== "owner") return false;
+  return hasAddon(getSettings(storeDbFromReq(req)), "equipos");
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await isOwner())) return NextResponse.json({ error: "Solo el dueño" }, { status: 403 });
+  if (!(await ownerWithEquipos(req))) return NextResponse.json({ error: "Solo el dueño con el adicional de Equipo" }, { status: 403 });
   const db = storeDbFromReq(req);
   const id = Number((await params).id);
   if (!getStaffById(id, db)) return NextResponse.json({ error: "Empleado inexistente" }, { status: 404 });
@@ -35,7 +37,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!(await isOwner())) return NextResponse.json({ error: "Solo el dueño" }, { status: 403 });
+  if (!(await ownerWithEquipos(req))) return NextResponse.json({ error: "Solo el dueño con el adicional de Equipo" }, { status: 403 });
   const db = storeDbFromReq(req);
   const id = Number((await params).id);
   deleteStaff(id, db);

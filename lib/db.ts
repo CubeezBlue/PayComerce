@@ -217,7 +217,9 @@ function seedDefaults(db: DB, storeName: string, demo: boolean) {
     plan: demo ? "empresa" : "emprendedor",
     addon_mp: demo ? "1" : "",
     addon_arca: demo ? "1" : "",
-    addon_delivery: "",
+    addon_delivery: demo ? "1" : "",
+    addon_caja: demo ? "1" : "",
+    addon_equipos: demo ? "1" : "",
     addon_domain: "",
     hours_json: JSON.stringify({
       "0": { open: true, from: "19:00", to: "23:30" }, "1": { open: true, from: "19:00", to: "23:30" },
@@ -334,7 +336,7 @@ export function listStoresWithInfo(): StoreOverview[] {
     try {
       const sdb = getStoreDb(s.slug);
       const settings = getSettings(sdb);
-      const addonKeys = ["mp", "arca", "delivery", "domain"];
+      const addonKeys = ["mp", "arca", "delivery", "caja", "equipos", "domain"];
       const addons = addonKeys.filter((k) => settings[`addon_${k}`] === "1");
       const products = (sdb.prepare("SELECT COUNT(*) c FROM products").get() as { c: number }).c;
       const orders = (sdb.prepare("SELECT COUNT(*) c FROM orders").get() as { c: number }).c;

@@ -31,6 +31,29 @@ export function checkSession(slug: string, token: string | undefined): boolean {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Token de un empleado: "<staffId>.<firma>" (firma HMAC atada al slug + id).
+export function staffToken(slug: string, staffId: number): string {
+  const sig = crypto.createHmac("sha256", SECRET).update(`staff:${slug}:${staffId}`).digest("hex");
+  return `${staffId}.${sig}`;
+}
+
+// Resuelve quién es el titular de la sesión: dueño, empleado (con id) o nadie.
+export type Session = { kind: "owner" } | { kind: "staff"; staffId: number };
+export function resolveSession(slug: string, token: string | undefined): Session | null {
+  if (!token) return null;
+  if (checkSession(slug, token)) return { kind: "owner" };
+  if (token.includes(".")) {
+    const [idStr, sig] = token.split(".");
+    const id = Number(idStr);
+    if (id > 0 && sig) {
+      const expected = crypto.createHmac("sha256", SECRET).update(`staff:${slug}:${id}`).digest("hex");
+      const a = Buffer.from(sig), b = Buffer.from(expected);
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) return { kind: "staff", staffId: id };
+    }
+  }
+  return null;
+}
+
 export const SESSION_COOKIE = "pc_auth";
 
 // Las validaciones puras viven en lib/validation.ts (para poder usarlas también

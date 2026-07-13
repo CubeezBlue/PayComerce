@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSettings } from "@/lib/db";
+import { getSettings, getStaffByUsername } from "@/lib/db";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
-import { verifyPassword, hashPassword, sessionToken, SESSION_COOKIE, validatePassword } from "@/lib/auth";
+import { verifyPassword, hashPassword, sessionToken, staffToken, SESSION_COOKIE, validatePassword } from "@/lib/auth";
 import { loginBlockedFor, loginFail, loginReset, reqIp } from "@/lib/ratelimit";
 
 export async function POST(req: NextRequest) {
@@ -13,9 +13,24 @@ export async function POST(req: NextRequest) {
   if (blocked > 0)
     return NextResponse.json({ error: `Demasiados intentos. Probá de nuevo en ${Math.ceil(blocked / 60)} minutos.` }, { status: 429 });
 
-  const { password } = await req.json();
-  const pw = String(password ?? "");
+  const body = await req.json();
+  const pw = String(body.password ?? "");
+  const username = String(body.username ?? "").trim();
 
+  // Login de EMPLEADO: usuario + contraseña.
+  if (username) {
+    const staff = getStaffByUsername(username, db);
+    if (!staff || !staff.active || !verifyPassword(pw, staff.password_hash)) {
+      loginFail(rlKey);
+      return NextResponse.json({ error: "Usuario o contraseña incorrectos" }, { status: 401 });
+    }
+    loginReset(rlKey);
+    const res = NextResponse.json({ ok: true });
+    res.cookies.set(SESSION_COOKIE, staffToken(slug, staff.id), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 60 * 60 * 24 * 30 });
+    return res;
+  }
+
+  // Login del DUEÑO: solo contraseña.
   const settings = getSettings(db);
   const stored = settings.admin_password_hash;
 

@@ -135,6 +135,16 @@ CREATE TABLE IF NOT EXISTS cash_closures (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_cash_closures_day ON cash_closures(day);
+CREATE TABLE IF NOT EXISTS staff (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL DEFAULT '',
+  username TEXT NOT NULL,
+  password_hash TEXT NOT NULL,
+  permissions TEXT NOT NULL DEFAULT '[]',
+  active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_username ON staff(username);
 `);
 
   // Migraciones para bases existentes
@@ -693,6 +703,46 @@ export function listCashClosures(branchId: number | null, limit = 30, database: 
   if (branchId != null)
     return database.prepare("SELECT * FROM cash_closures WHERE branch_id = ? ORDER BY id DESC LIMIT ?").all(branchId, limit) as CashClosure[];
   return database.prepare("SELECT * FROM cash_closures ORDER BY id DESC LIMIT ?").all(limit) as CashClosure[];
+}
+
+// ----- Empleados (staff) -----
+export type Staff = {
+  id: number; name: string; username: string; password_hash: string;
+  permissions: string; active: number; created_at: string;
+};
+export type StaffPublic = Omit<Staff, "password_hash">;
+
+const STAFF_PUBLIC = "id, name, username, permissions, active, created_at";
+
+export function listStaff(database: DB = db): StaffPublic[] {
+  return database.prepare(`SELECT ${STAFF_PUBLIC} FROM staff ORDER BY id`).all() as StaffPublic[];
+}
+export function getStaffById(id: number, database: DB = db): Staff | null {
+  return (database.prepare("SELECT * FROM staff WHERE id = ?").get(id) as Staff | undefined) ?? null;
+}
+export function getStaffByUsername(username: string, database: DB = db): Staff | null {
+  return (database.prepare("SELECT * FROM staff WHERE lower(username) = lower(?)").get(username) as Staff | undefined) ?? null;
+}
+export function createStaff(input: { name: string; username: string; password_hash: string; permissions: string[] }, database: DB = db): number {
+  const info = database.prepare(
+    "INSERT INTO staff (name, username, password_hash, permissions, active, created_at) VALUES (?, ?, ?, ?, 1, ?)"
+  ).run(input.name, input.username, input.password_hash, JSON.stringify(input.permissions), new Date().toISOString());
+  return Number(info.lastInsertRowid);
+}
+export function updateStaff(id: number, fields: { name?: string; permissions?: string[]; active?: boolean }, database: DB = db) {
+  const sets: string[] = [], vals: unknown[] = [];
+  if (fields.name != null) { sets.push("name = ?"); vals.push(fields.name); }
+  if (fields.permissions != null) { sets.push("permissions = ?"); vals.push(JSON.stringify(fields.permissions)); }
+  if (fields.active != null) { sets.push("active = ?"); vals.push(fields.active ? 1 : 0); }
+  if (!sets.length) return;
+  vals.push(id);
+  database.prepare(`UPDATE staff SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+}
+export function setStaffPassword(id: number, passwordHash: string, database: DB = db) {
+  database.prepare("UPDATE staff SET password_hash = ? WHERE id = ?").run(passwordHash, id);
+}
+export function deleteStaff(id: number, database: DB = db) {
+  database.prepare("DELETE FROM staff WHERE id = ?").run(id);
 }
 
 // Error de stock insuficiente al crear un pedido (lista de ítems afectados).

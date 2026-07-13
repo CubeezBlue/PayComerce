@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSettings } from "@/lib/db";
 import { storeDbFromReq } from "@/lib/tenant";
+import { getActor, actorCan } from "@/lib/actor";
 
 export function GET(req: NextRequest) {
   return NextResponse.json(getSettings(storeDbFromReq(req)));
 }
 
 export async function PUT(req: NextRequest) {
+  if (!actorCan(await getActor(), "config")) return NextResponse.json({ error: "No tenés permiso para cambiar la configuración" }, { status: 403 });
   const db = storeDbFromReq(req);
   const body = (await req.json()) as Record<string, string>;
   const upsert = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value");

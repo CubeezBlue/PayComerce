@@ -6,13 +6,18 @@ import { validatePassword } from "@/lib/validation";
 export default function LoginForm({ storeName, firstTime, base = "" }: { storeName: string; firstTime: boolean; base?: string }) {
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  const [staffMode, setStaffMode] = useState(false);
+  const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
-    if (firstTime) {
+    if (staffMode) {
+      if (!username.trim()) { setError("Ingresá tu usuario"); return; }
+      if (!pw) { setError("Ingresá tu contraseña"); return; }
+    } else if (firstTime) {
       const err = validatePassword(pw);
       if (err) { setError(err); return; }
       if (pw !== pw2) { setError("Las contraseñas no coinciden"); return; }
@@ -21,7 +26,7 @@ export default function LoginForm({ storeName, firstTime, base = "" }: { storeNa
     const res = await fetch("/api/admin/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password: pw }),
+      body: JSON.stringify(staffMode ? { username: username.trim(), password: pw } : { password: pw }),
     });
     setBusy(false);
     if (!res.ok) { setError((await res.json()).error || "Error"); return; }
@@ -40,21 +45,30 @@ export default function LoginForm({ storeName, firstTime, base = "" }: { storeNa
         </div>
       </div>
 
-      <h1 className="text-2xl font-bold">{firstTime ? "Creá tu contraseña" : "Ingresá a tu panel"}</h1>
+      <h1 className="text-2xl font-bold">{firstTime ? "Creá tu contraseña" : staffMode ? "Ingreso de empleados" : "Ingresá a tu panel"}</h1>
       <p className="mt-1 text-sm text-neutral-500">
-        {firstTime ? "Es la primera vez. Definí una contraseña para proteger tu panel." : "Ingresá con tu contraseña de administrador."}
+        {firstTime ? "Es la primera vez. Definí una contraseña para proteger tu panel." : staffMode ? "Ingresá con el usuario y contraseña que te dio el dueño." : "Ingresá con tu contraseña de administrador."}
       </p>
 
       <form onSubmit={submit} className="mt-6 space-y-3">
+        {staffMode && (
+          <input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="Usuario"
+            autoFocus
+            className="w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]"
+          />
+        )}
         <input
           type="password"
           value={pw}
           onChange={(e) => setPw(e.target.value)}
           placeholder="Contraseña"
-          autoFocus
+          autoFocus={!staffMode}
           className="w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]"
         />
-        {firstTime && (
+        {firstTime && !staffMode && (
           <input
             type="password"
             value={pw2}
@@ -72,6 +86,15 @@ export default function LoginForm({ storeName, firstTime, base = "" }: { storeNa
           {busy ? "Entrando…" : firstTime ? "Crear contraseña y entrar" : "Entrar"}
         </button>
       </form>
+
+      {!firstTime && (
+        <button
+          onClick={() => { setStaffMode((v) => !v); setError(""); setPw(""); setUsername(""); }}
+          className="mt-4 text-sm text-neutral-500 hover:text-[var(--pc)]"
+        >
+          {staffMode ? "← Soy el dueño" : "Soy empleado →"}
+        </button>
+      )}
     </div>
   );
 }

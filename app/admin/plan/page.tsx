@@ -2,10 +2,12 @@ import { getSettings, subscriptionState } from "@/lib/db";
 import PlanManager from "@/components/admin/PlanManager";
 import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
 import { subscriptionConfigured } from "@/lib/mp-subscription";
+import { requirePermission } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
 
 export default async function PlanPage() {
+  await requirePermission("config");
   const settings = getSettings(await getRequestStoreDb());
   return (
     <PlanManager

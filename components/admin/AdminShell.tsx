@@ -3,23 +3,32 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Feature, hasFeature, AddonKey, hasAddon } from "@/lib/plans";
+import { Permission } from "@/lib/permissions";
 
-const NAV: { href: string; label: string; icon: string; feature?: Feature; addon?: AddonKey }[] = [
+const NAV: { href: string; label: string; icon: string; feature?: Feature; addon?: AddonKey; perm?: Permission; ownerOnly?: boolean }[] = [
   { href: "/admin", label: "Inicio", icon: "📊" },
-  { href: "/admin/pedidos", label: "Pedidos", icon: "🧾", feature: "orders_board" },
-  { href: "/admin/caja", label: "Caja", icon: "💰", feature: "dashboard_full" },
-  { href: "/admin/productos", label: "Productos", icon: "📦" },
-  { href: "/admin/sucursales", label: "Sucursales", icon: "📍", feature: "branches" },
-  { href: "/admin/envios", label: "Envíos", icon: "🛵", addon: "delivery" },
-  { href: "/admin/precios", label: "Precios", icon: "📈", feature: "price_adjust" },
-  { href: "/admin/catalogo", label: "Excel", icon: "📄", feature: "excel" },
-  { href: "/admin/plan", label: "Mi plan", icon: "⭐" },
-  { href: "/admin/configuracion", label: "Configuración", icon: "⚙️" },
+  { href: "/admin/pedidos", label: "Pedidos", icon: "🧾", feature: "orders_board", perm: "pedidos" },
+  { href: "/admin/caja", label: "Caja", icon: "💰", feature: "dashboard_full", perm: "caja" },
+  { href: "/admin/productos", label: "Productos", icon: "📦", perm: "productos" },
+  { href: "/admin/sucursales", label: "Sucursales", icon: "📍", feature: "branches", perm: "sucursales" },
+  { href: "/admin/envios", label: "Envíos", icon: "🛵", addon: "delivery", perm: "envios" },
+  { href: "/admin/precios", label: "Precios", icon: "📈", feature: "price_adjust", perm: "precios" },
+  { href: "/admin/catalogo", label: "Excel", icon: "📄", feature: "excel", perm: "precios" },
+  { href: "/admin/equipo", label: "Equipo", icon: "👥", perm: "config", ownerOnly: true },
+  { href: "/admin/plan", label: "Mi plan", icon: "⭐", perm: "config" },
+  { href: "/admin/configuracion", label: "Configuración", icon: "⚙️", perm: "config" },
 ];
 
-export default function AdminShell({ settings, base = "", children }: { settings: Record<string, string>; base?: string; children: React.ReactNode }) {
+export default function AdminShell({
+  settings, base = "", permissions = [], actorName = "", isOwner = true, children,
+}: {
+  settings: Record<string, string>; base?: string; permissions?: Permission[]; actorName?: string; isOwner?: boolean; children: React.ReactNode;
+}) {
   const pathname = usePathname();
-  const NAV_ITEMS = NAV.filter((n) => (!n.feature || hasFeature(settings, n.feature)) && (!n.addon || hasAddon(settings, n.addon)));
+  const can = (p?: Permission) => !p || isOwner || permissions.includes(p);
+  const NAV_ITEMS = NAV.filter(
+    (n) => (!n.feature || hasFeature(settings, n.feature)) && (!n.addon || hasAddon(settings, n.addon)) && can(n.perm) && (!n.ownerOnly || isOwner),
+  );
   // El middleware reescribe /t/<slug>/admin/... -> /admin/..., comparamos con la ruta limpia
   const clean = base && pathname.startsWith(base) ? pathname.slice(base.length) || "/" : pathname;
 
@@ -31,7 +40,7 @@ export default function AdminShell({ settings, base = "", children }: { settings
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--brand)] text-lg font-black text-[var(--brand-text)]">P</span>
           <div>
             <p className="text-sm font-bold leading-none">PayComerce</p>
-            <p className="text-xs text-neutral-400">Panel admin</p>
+            <p className="text-xs text-neutral-400">{isOwner ? "Panel admin" : `👤 ${actorName}`}</p>
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-2">

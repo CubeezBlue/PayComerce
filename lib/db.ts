@@ -107,6 +107,21 @@ CREATE TABLE IF NOT EXISTS orders (
   invoice_demo INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS order_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  product_id INTEGER,
+  name TEXT NOT NULL DEFAULT '',
+  qty INTEGER NOT NULL DEFAULT 1,
+  price REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+CREATE INDEX IF NOT EXISTS idx_orders_branch ON orders(branch_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
+CREATE INDEX IF NOT EXISTS idx_product_branches_branch ON product_branches(branch_id);
 `);
 
   // Migraciones para bases existentes
@@ -126,6 +141,20 @@ CREATE TABLE IF NOT EXISTS orders (
   if (!bcols.includes("lon")) db.exec("ALTER TABLE branches ADD COLUMN lon REAL");
   // Zona de delivery dibujada a mano (polígono). JSON: { points:[[lat,lon]...], cost, min_order }
   if (!bcols.includes("delivery_polygon")) db.exec("ALTER TABLE branches ADD COLUMN delivery_polygon TEXT");
+
+  // Migración: normalizar los ítems de pedidos existentes a order_items (idempotente).
+  const oiCount = (db.prepare("SELECT COUNT(*) AS c FROM order_items").get() as { c: number }).c;
+  if (oiCount === 0) {
+    const orders = db.prepare("SELECT id, items FROM orders").all() as { id: number; items: string }[];
+    const ins = db.prepare("INSERT INTO order_items (order_id, product_id, name, qty, price) VALUES (?, ?, ?, ?, ?)");
+    db.transaction(() => {
+      for (const o of orders) {
+        let items: OrderItem[] = [];
+        try { items = JSON.parse(o.items || "[]"); } catch { items = []; }
+        for (const it of items) ins.run(o.id, it.product_id ?? null, String(it.name ?? ""), Number(it.qty) || 0, Number(it.price) || 0);
+      }
+    })();
+  }
 }
 
 // Defaults comunes a toda tienda nueva
@@ -556,6 +585,7 @@ export function createOrder(o: NewOrder, database: DB = db): number {
     `INSERT INTO orders (code, branch_id, customer_name, phone, address, delivery, payment, notes, items, subtotal, shipping, total, invoice, cuit, status, payment_status, created_at)
      VALUES (@code, @branch_id, @customer_name, @phone, @address, @delivery, @payment, @notes, @items, @subtotal, @shipping, @total, @invoice, @cuit, 'nuevo', @payment_status, @created_at)`
   );
+  const insItem = database.prepare("INSERT INTO order_items (order_id, product_id, name, qty, price) VALUES (?, ?, ?, ?, ?)");
   const decStock = database.prepare(`UPDATE product_branches SET stock = MAX(0, stock - ?) WHERE product_id = ? AND branch_id = ? AND stock IS NOT NULL`);
   const getStock = database.prepare(`SELECT stock FROM product_branches WHERE product_id = ? AND branch_id = ?`);
   const tx = database.transaction(() => {
@@ -570,10 +600,18 @@ export function createOrder(o: NewOrder, database: DB = db): number {
       if (short.length) throw new OutOfStockError(short);
     }
     const info = insert.run({ ...o, items: JSON.stringify(o.items ?? []), invoice: o.invoice ? 1 : 0 });
+    const orderId = Number(info.lastInsertRowid);
+    // Normalizado: una fila por ítem en order_items (fuente para reportes/caja).
+    for (const it of o.items ?? []) insItem.run(orderId, it.product_id ?? null, String(it.name ?? ""), Number(it.qty) || 0, Number(it.price) || 0);
     if (o.branch_id != null) for (const it of o.items ?? []) if (it.product_id != null && it.qty > 0) decStock.run(it.qty, it.product_id, o.branch_id);
-    return Number(info.lastInsertRowid);
+    return orderId;
   });
   return tx();
+}
+
+// Ítems normalizados de un pedido (desde order_items).
+export function getOrderItems(orderId: number, database: DB = db): OrderItem[] {
+  return database.prepare("SELECT product_id, name, qty, price FROM order_items WHERE order_id = ? ORDER BY id").all(orderId) as OrderItem[];
 }
 
 // Error de stock insuficiente al crear un pedido (lista de ítems afectados).

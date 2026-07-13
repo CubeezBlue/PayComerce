@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createOrder, getOrders, clearFinalizedOrders, getOrderById, getSettings, saveInvoice, OutOfStockError } from "@/lib/db";
 import { createInvoiceForOrder } from "@/lib/afip";
-import { storeDbFromReq } from "@/lib/tenant";
+import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
+import { log } from "@/lib/log";
 
 export function GET(req: NextRequest) {
   const db = storeDbFromReq(req);
@@ -52,8 +53,10 @@ export async function POST(req: NextRequest) {
   } catch (e) {
     if (e instanceof OutOfStockError)
       return NextResponse.json({ error: "Sin stock suficiente", items: e.items }, { status: 409 });
+    log.error("orders: no se pudo crear el pedido", e, { slug: slugFromReq(req), code: String(b.code ?? "") });
     throw e;
   }
+  log.info("orders: pedido creado", { slug: slugFromReq(req), orderId: id, total: Number(b.total ?? 0) });
 
   // Si pidió factura, la emitimos al toque (best-effort; si falla, se puede reintentar del panel)
   let invoice = null;
@@ -64,8 +67,8 @@ export async function POST(req: NextRequest) {
         invoice = await createInvoiceForOrder(order, getSettings(db));
         saveInvoice(id, invoice, db);
       }
-    } catch {
-      /* la factura queda pendiente para reintentar desde el tablero */
+    } catch (e) {
+      log.warn("orders: la factura quedó pendiente (reintentable desde el tablero)", { slug: slugFromReq(req), orderId: id, error: e instanceof Error ? e.message : String(e) });
     }
   }
 

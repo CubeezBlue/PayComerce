@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSettings, updatePaymentStatus, getOrderById, saveInvoice } from "@/lib/db";
 import { createInvoiceForOrder } from "@/lib/afip";
-import { storeDbFromReq } from "@/lib/tenant";
+import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
+import { log } from "@/lib/log";
 
 // Webhook (IPN) de Mercado Pago. MP avisa cuando cambia el estado de un pago.
 // Consultamos el pago real y actualizamos el estado del pedido correspondiente.
@@ -45,6 +46,7 @@ async function handle(req: NextRequest) {
       const mapped =
         status === "approved" ? "approved" : status === "rejected" || status === "cancelled" ? "rejected" : "pending";
       updatePaymentStatus(orderId, mapped, String(paymentId), db);
+      log.info("mp-webhook: estado de pago actualizado", { slug: slugFromReq(req), orderId, status, mapped, paymentId: String(paymentId) });
 
       // Si el pago se aprobó y el cliente pidió factura, la emitimos ahora
       if (mapped === "approved") {
@@ -52,14 +54,15 @@ async function handle(req: NextRequest) {
         if (order && order.invoice && !order.cae) {
           try {
             saveInvoice(orderId, await createInvoiceForOrder(order, settings), db);
-          } catch {
-            /* queda pendiente para reintentar del panel */
+          } catch (e) {
+            log.warn("mp-webhook: factura quedó pendiente tras aprobar el pago", { slug: slugFromReq(req), orderId, error: e instanceof Error ? e.message : String(e) });
           }
         }
       }
     }
-  } catch {
-    /* si falla la consulta, respondemos 200 igual para que MP no reintente en loop */
+  } catch (e) {
+    // Respondemos 200 igual para que MP no reintente en loop, pero dejamos el error registrado.
+    log.error("mp-webhook: error consultando el pago en Mercado Pago", e, { slug: slugFromReq(req), paymentId });
   }
 
   return NextResponse.json({ ok: true });

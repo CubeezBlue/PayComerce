@@ -8,6 +8,12 @@ export function GET(req: NextRequest) {
   const db = storeDbFromReq(req);
   const categories = new Map(getCategories(db).map((c) => [c.id, c.name]));
   const branches = getBranches(false, db);
+  // Exportamos las imágenes como URL absoluta (https://tutienda/...) para que sean
+  // clicleables/portables y no se "rompan" al abrir el Excel fuera del sitio.
+  const host = req.headers.get("host");
+  const proto = req.headers.get("x-forwarded-proto") || "https";
+  const origin = host ? `${proto}://${host}` : "";
+  const absImg = (u: string) => (u && u.startsWith("/") ? origin + u : u);
   const rows = getProductsWithBranches(false, db).map((p) => {
     const row: Record<string, unknown> = {
       ID: p.id,
@@ -16,7 +22,7 @@ export function GET(req: NextRequest) {
       Descripcion: p.description,
       Precio: p.price,
       Activo: p.active ? "SI" : "NO",
-      Imagen: p.image_url,
+      Imagen: absImg(p.image_url),
     };
     // Una columna por sucursal: vacío = no está; número = stock; "SI" = ilimitado.
     for (const br of branches) {

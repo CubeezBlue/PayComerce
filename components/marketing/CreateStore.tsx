@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { PLANS, PLAN_ORDER, ADDONS } from "@/lib/plans";
+import { PLANS, PLAN_ORDER } from "@/lib/plans";
 import { formatPrice } from "@/lib/format";
 import { validatePassword, isValidEmail } from "@/lib/validation";
 import { RUBROS } from "@/lib/rubros";
@@ -11,6 +11,40 @@ function slugify(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32);
 }
+
+// Qué incluye cada plan, en criollo, para la tarjeta de selección.
+const PLAN_HIGHLIGHTS: Record<string, { blurb: string; features: string[] }> = {
+  emprendedor: {
+    blurb: "Ideal para arrancar a vender online sin vueltas.",
+    features: [
+      "Hasta 50 productos",
+      "Catálogo web + carrito de compras",
+      "Pedidos directo a tu WhatsApp",
+      "Panel de administración",
+    ],
+  },
+  profesional: {
+    blurb: "Para el negocio que ya vende y quiere gestionar todo.",
+    features: [
+      "Todo lo de Emprendedor, y además:",
+      "Productos ilimitados",
+      "Variantes y adicionales (talles, sabores…)",
+      "Carga masiva por Excel + aumentos por %",
+      "Tablero de pedidos en vivo (sonido + impresión)",
+      "Dashboard de ventas completo",
+    ],
+  },
+  empresa: {
+    blurb: "Todo incluido para crecer sin límites.",
+    features: [
+      "Todo lo de Profesional, y además:",
+      "Multisucursal (menú y stock por sucursal)",
+      "Reportes avanzados y listas de precio",
+      "💳 Pagos online con Mercado Pago — incluido",
+      "🧾 Facturación electrónica (ARCA) — incluida",
+    ],
+  },
+};
 
 type Step = "plan" | "datos" | "tienda" | "cuenta";
 const STEPS: { k: Step; label: string }[] = [
@@ -110,20 +144,37 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
           <>
             <h1 className="text-2xl font-black">Elegí tu plan</h1>
             <p className="mt-1 text-neutral-500">Empezás con 14 días gratis. Cambiás o cancelás cuando quieras.</p>
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="mt-6 grid gap-4 lg:grid-cols-3">
               {PLAN_ORDER.map((id) => {
                 const p = PLANS[id]; const active = plan === id; const popular = id === "profesional";
+                const hl = PLAN_HIGHLIGHTS[id];
                 return (
-                  <button key={id} onClick={() => setPlan(id)} className={`relative flex flex-col rounded-2xl border-2 p-4 text-left transition ${active ? "border-[var(--pc)] bg-[var(--pc)]/5 shadow-md" : "border-neutral-200 hover:border-neutral-300"}`}>
-                    {popular && <span className="absolute -top-3 left-4 rounded-full bg-[var(--pc)] px-2 py-0.5 text-xs font-semibold text-white">Más elegido</span>}
-                    <span className="font-bold">{p.name}</span>
-                    <span className="mt-1 text-xl font-black">{formatPrice(p.price)}<span className="text-xs font-normal text-neutral-400">/mes</span></span>
-                    <span className="mt-1 text-xs text-neutral-500">{p.productLimit ? `Hasta ${p.productLimit} productos` : "Productos ilimitados"}</span>
-                    {p.includedAddons.map((k) => <span key={k} className="mt-1 text-xs font-medium text-green-700">★ {ADDONS.find((a) => a.key === k)?.name} incluido</span>)}
+                  <button key={id} onClick={() => setPlan(id)} className={`relative flex flex-col rounded-2xl border-2 p-5 text-left transition ${active ? "border-[var(--pc)] bg-[var(--pc)]/5 shadow-md" : "border-neutral-200 hover:border-neutral-300"}`}>
+                    {popular && <span className="absolute -top-3 left-5 rounded-full bg-[var(--pc)] px-2 py-0.5 text-xs font-semibold text-white">Más elegido</span>}
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-bold">{p.name}</span>
+                      <span className={`grid h-5 w-5 place-items-center rounded-full border-2 text-[10px] ${active ? "border-[var(--pc)] bg-[var(--pc)] text-white" : "border-neutral-300 text-transparent"}`}>✓</span>
+                    </div>
+                    <span className="mt-1 text-2xl font-black">{formatPrice(p.price)}<span className="text-sm font-normal text-neutral-400">/mes</span></span>
+                    <span className="mt-1 text-xs text-neutral-500">{hl.blurb}</span>
+                    <ul className="mt-4 space-y-1.5 border-t border-neutral-100 pt-4">
+                      {hl.features.map((f, i) => {
+                        const isHeader = f.endsWith("además:");
+                        return (
+                          <li key={i} className={`flex gap-2 text-xs ${isHeader ? "font-semibold text-neutral-700" : "text-neutral-600"}`}>
+                            {!isHeader && <span className="text-[var(--pc)]">✓</span>}
+                            <span>{f}</span>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </button>
                 );
               })}
             </div>
+            <p className="mt-4 text-center text-xs text-neutral-400">
+              ¿Necesitás pagos online o facturación sueltos? También los sumás como complemento desde tu panel.
+            </p>
           </>
         )}
 

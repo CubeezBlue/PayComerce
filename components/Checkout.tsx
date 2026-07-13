@@ -4,7 +4,7 @@ import { useState } from "react";
 import { formatPrice } from "@/lib/format";
 import { useCart } from "./CartContext";
 import { Branch, DeliveryBand } from "@/lib/types";
-import { distanceKm, bandForDistance } from "@/lib/geo";
+import { distanceKm, bandForDistance, parseDeliveryPolygon, pointInPolygon } from "@/lib/geo";
 import AddressAutocomplete from "./AddressAutocomplete";
 
 type Settings = Record<string, string>;
@@ -39,21 +39,30 @@ export default function Checkout({ settings, branches, bands = [] }: { settings:
   const [cuit, setCuit] = useState("");
   const [code] = useState(orderCode);
 
-  // Delivery por radio: activo si hay integración, la sucursal está ubicada y tiene franjas.
+  // Delivery con geocerca: por zona dibujada (polígono) o por radio (círculo).
   const branchBands = branch ? bands.filter((b) => b.branch_id === branch.id) : [];
-  const radiusOn = settings.delivery_enabled === "1" && !!branch?.lat && !!branch?.lon && branchBands.length > 0;
+  const poly = parseDeliveryPolygon(branch?.delivery_polygon);
+  const usePoly = !!poly;
+  const geofenceOn =
+    settings.delivery_enabled === "1" && !!branch?.lat && !!branch?.lon && (usePoly || branchBands.length > 0);
 
-  // Distancia del cliente a la sucursal y franja aplicable.
-  const distance = radiusOn && coords && branch?.lat != null && branch?.lon != null
+  // Franja/cobertura aplicable según la dirección elegida en el mapa.
+  const distance = geofenceOn && !usePoly && coords && branch?.lat != null && branch?.lon != null
     ? distanceKm(branch.lat, branch.lon, coords.lat, coords.lon)
     : null;
-  const band = distance != null ? bandForDistance(distance, branchBands) : null;
-  const outOfCoverage = radiusOn && distance != null && band === null; // dirección elegida pero fuera de cobertura
-  const needsAddressPick = radiusOn && delivery === "delivery" && coords === null; // falta elegir del mapa
+  const band = usePoly
+    ? (poly ? { cost: poly.cost, min_order: poly.min_order } : null)
+    : (distance != null ? bandForDistance(distance, branchBands) : null);
+  // ¿La dirección elegida cae dentro de la zona?
+  const covered = usePoly
+    ? (coords ? pointInPolygon(coords.lat, coords.lon, poly!.points) : null)
+    : (distance != null ? band !== null : null);
+  const outOfCoverage = geofenceOn && coords != null && covered === false; // dirección elegida pero fuera de cobertura
+  const needsAddressPick = geofenceOn && delivery === "delivery" && coords === null; // falta elegir del mapa
 
-  const shipping = delivery === "delivery" ? (radiusOn ? (band?.cost ?? 0) : deliveryCost) : 0;
+  const shipping = delivery === "delivery" ? (geofenceOn ? (band?.cost ?? 0) : deliveryCost) : 0;
   const total = subtotal + shipping;
-  const belowMin = !!band && band.min_order > 0 && subtotal < band.min_order;
+  const belowMin = !!band && band.min_order > 0 && subtotal < band.min_order && !outOfCoverage;
 
   const errors: string[] = [];
   if (!name.trim()) errors.push("nombre");
@@ -227,15 +236,15 @@ export default function Checkout({ settings, branches, bands = [] }: { settings:
                     onPick={(p) => { setAddress(p.label); setCoords({ lat: p.lat, lon: p.lon }); }}
                     placeholder="Dirección de entrega"
                   />
-                  {radiusOn && needsAddressPick && (
+                  {geofenceOn && needsAddressPick && (
                     <p className="mt-1 text-xs text-neutral-400">Elegí tu dirección de la lista para calcular el envío.</p>
                   )}
-                  {radiusOn && distance != null && band && (
+                  {geofenceOn && covered === true && band && (
                     <p className="mt-1 text-xs text-green-600">
-                      ✓ Entrás en la cobertura ({distance.toFixed(1)} km). Envío: {band.cost > 0 ? formatPrice(band.cost, currency) : "Gratis"}.
+                      ✓ Entrás en la zona de cobertura{distance != null ? ` (${distance.toFixed(1)} km)` : ""}. Envío: {band.cost > 0 ? formatPrice(band.cost, currency) : "Gratis"}.
                     </p>
                   )}
-                  {radiusOn && outOfCoverage && (
+                  {geofenceOn && outOfCoverage && (
                     <p className="mt-1 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600 ring-1 ring-red-200">
                       Esa dirección está fuera de la zona de cobertura de {branch?.name}. Podés elegir <b>Retiro</b> o cambiar la dirección.
                     </p>

@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Branch, DeliveryBand } from "@/lib/types";
-import { formatPrice } from "@/lib/format";
+import { parseDeliveryPolygon } from "@/lib/geo";
 import CoverageMapPicker from "./CoverageMapPicker";
 
-type Cfg = { km: number; cost: string; min_order: string };
+type LatLng = [number, number];
+type Cfg = { mode: "radius" | "polygon"; km: number; polygon: LatLng[]; cost: string; min_order: string };
 
 export default function DeliveryCoverageManager({ currency = "$", base = "" }: { currency?: string; base?: string }) {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -22,11 +23,18 @@ export default function DeliveryCoverageManager({ currency = "$", base = "" }: {
       fetch("/api/delivery-bands").then((r) => r.json()) as Promise<DeliveryBand[]>,
     ]);
     const map: Record<number, Cfg> = {};
-    for (const br of brs) map[br.id] = { km: 3, cost: "", min_order: "" };
-    // Colapsamos a un solo radio por sucursal (el mayor, si había varias franjas).
+    for (const br of brs) {
+      const poly = parseDeliveryPolygon(br.delivery_polygon);
+      map[br.id] = poly
+        ? { mode: "polygon", km: 3, polygon: poly.points, cost: String(poly.cost || ""), min_order: String(poly.min_order || "") }
+        : { mode: "radius", km: 3, polygon: [], cost: "", min_order: "" };
+    }
+    // Colapsamos las franjas por radio a un solo radio por sucursal (el mayor).
     for (const b of bands) {
       const cur = map[b.branch_id];
-      if (cur && b.max_km >= cur.km) map[b.branch_id] = { km: b.max_km, cost: String(b.cost || ""), min_order: String(b.min_order || "") };
+      if (cur && cur.mode === "radius" && b.max_km >= cur.km) {
+        map[b.branch_id] = { ...cur, km: b.max_km, cost: String(b.cost || ""), min_order: String(b.min_order || "") };
+      }
     }
     setBranches(brs.filter((b) => b.active));
     setCfg(map);
@@ -42,11 +50,10 @@ export default function DeliveryCoverageManager({ currency = "$", base = "" }: {
   async function save(id: number) {
     setSavingId(id);
     const c = cfg[id];
-    await fetch("/api/delivery-bands", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ branch_id: id, bands: [{ max_km: c.km, cost: Number(c.cost) || 0, min_order: Number(c.min_order) || 0 }] }),
-    });
+    const body = c.mode === "polygon"
+      ? { branch_id: id, mode: "polygon", polygon: { points: c.polygon, cost: Number(c.cost) || 0, min_order: Number(c.min_order) || 0 } }
+      : { branch_id: id, mode: "radius", bands: [{ max_km: c.km, cost: Number(c.cost) || 0, min_order: Number(c.min_order) || 0 }] };
+    await fetch("/api/delivery-bands", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     setSavingId(null);
     setSavedId(id);
   }
@@ -54,12 +61,11 @@ export default function DeliveryCoverageManager({ currency = "$", base = "" }: {
   async function disable(id: number) {
     setSavingId(id);
     await fetch("/api/delivery-bands", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ branch_id: id, bands: [] }),
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ branch_id: id, mode: "radius", bands: [] }),
     });
     setSavingId(null);
-    patch(id, { cost: "" });
+    patch(id, { cost: "", polygon: [], mode: "radius" });
     setSavedId(id);
   }
 
@@ -70,8 +76,8 @@ export default function DeliveryCoverageManager({ currency = "$", base = "" }: {
       <div>
         <h1 className="text-2xl font-bold">Delivery por zona de cobertura</h1>
         <p className="text-neutral-500">
-          Cada sucursal reparte dentro de un radio. Arrastrá el slider para marcar el área en el mapa. Si el cliente está
-          fuera del círculo, <b>no se le ofrece envío</b> (solo retiro).
+          Definí hasta dónde repartís por cada sucursal: un <b>radio</b> (círculo) o <b>dibujando la zona</b> a mano en el
+          mapa. Si el cliente está fuera de la zona, <b>no se le ofrece envío</b> (solo retiro).
         </p>
       </div>
 
@@ -94,25 +100,54 @@ export default function DeliveryCoverageManager({ currency = "$", base = "" }: {
 
             {!located ? (
               <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700 ring-1 ring-amber-200">
-                Para el delivery por radio necesitás fijar la ubicación de esta sucursal. Andá a{" "}
+                Para el delivery necesitás fijar la ubicación de esta sucursal. Andá a{" "}
                 <Link href={`${base}/admin/sucursales`} className="font-semibold underline">Sucursales</Link>, editá la
                 sucursal y elegí su dirección del mapa.
               </p>
             ) : (
               <div className="mt-4 space-y-4">
-                <CoverageMapPicker lat={br.lat as number} lon={br.lon as number} km={c.km} />
-
-                <div>
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-neutral-700">Radio de cobertura</label>
-                    <span className="text-sm font-bold text-[var(--brand)]">{c.km} km</span>
-                  </div>
-                  <input
-                    type="range" min={0.5} max={20} step={0.5} value={c.km}
-                    onChange={(e) => patch(br.id, { km: Number(e.target.value) })}
-                    className="mt-2 w-full accent-[var(--brand)]"
-                  />
+                {/* Selector de forma de la zona */}
+                <div className="inline-flex rounded-xl bg-neutral-100 p-1 text-sm">
+                  <button
+                    onClick={() => patch(br.id, { mode: "radius" })}
+                    className={`rounded-lg px-4 py-1.5 font-semibold ${c.mode === "radius" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500"}`}>
+                    ⭕ Radio
+                  </button>
+                  <button
+                    onClick={() => patch(br.id, { mode: "polygon" })}
+                    className={`rounded-lg px-4 py-1.5 font-semibold ${c.mode === "polygon" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500"}`}>
+                    ✏️ Dibujar zona
+                  </button>
                 </div>
+
+                <CoverageMapPicker
+                  lat={br.lat as number}
+                  lon={br.lon as number}
+                  km={c.km}
+                  mode={c.mode}
+                  polygon={c.polygon}
+                  onPolygonChange={(pts) => patch(br.id, { polygon: pts })}
+                />
+
+                {c.mode === "radius" ? (
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-neutral-700">Radio de cobertura</label>
+                      <span className="text-sm font-bold text-[var(--brand)]">{c.km} km</span>
+                    </div>
+                    <input
+                      type="range" min={0.5} max={20} step={0.5} value={c.km}
+                      onChange={(e) => patch(br.id, { km: Number(e.target.value) })}
+                      className="mt-2 w-full accent-[var(--brand)]"
+                    />
+                  </div>
+                ) : (
+                  <p className="text-xs text-neutral-500">
+                    {c.polygon.length < 3
+                      ? "Tocá el mapa para marcar los límites de tu zona de reparto (mínimo 3 puntos)."
+                      : `Zona definida con ${c.polygon.length} puntos. Podés seguir agregando o tocar "Deshacer".`}
+                  </p>
+                )}
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="block">
@@ -128,7 +163,8 @@ export default function DeliveryCoverageManager({ currency = "$", base = "" }: {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3">
-                  <button onClick={() => save(br.id)} disabled={savingId === br.id} className="rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-[var(--brand-text)] shadow-sm disabled:opacity-60">
+                  <button onClick={() => save(br.id)} disabled={savingId === br.id || (c.mode === "polygon" && c.polygon.length < 3)}
+                    className="rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-[var(--brand-text)] shadow-sm disabled:opacity-60">
                     {savingId === br.id ? "Guardando…" : "Guardar cobertura"}
                   </button>
                   <button onClick={() => disable(br.id)} disabled={savingId === br.id} className="text-sm text-neutral-500 hover:underline">

@@ -30,6 +30,23 @@ export async function POST(req: NextRequest) {
   }
 
   const norm = (v: unknown) => String(v ?? "").trim();
+
+  // Limpia y valida la URL de imagen de una celda del Excel.
+  // Devuelve: string (URL válida) | "" (borrar imagen) | null (dejar la actual).
+  const cleanImageUrl = (raw: string): string | null => {
+    // Quita espacios raros (nbsp, zero-width) y comillas que a veces pega Excel.
+    let u = raw.replace(/[​-‍﻿]/g, "").replace(/ /g, " ").trim().replace(/^["']+|["']+$/g, "");
+    if (u === "") return null; // celda vacía → NO tocar la imagen que ya tiene
+    if (/^(-|sin|ninguna|borrar|x)$/i.test(u)) return ""; // pidió sacarle la imagen
+    // Convierte enlaces "para compartir" a enlaces directos de imagen.
+    const gd = u.match(/drive\.google\.com\/file\/d\/([^/?]+)/) || (u.includes("drive.google.com") && u.match(/[?&]id=([^&]+)/));
+    if (gd) return `https://drive.google.com/uc?export=view&id=${gd[1]}`;
+    if (/dropbox\.com/i.test(u)) return u.replace(/([?&])dl=0\b/, "$1raw=1").replace(/\?dl=0$/, "?raw=1");
+    // Aceptamos URLs http(s) o rutas internas del propio sitio.
+    if (/^https?:\/\//i.test(u) || u.startsWith("/api/media/") || u.startsWith("/uploads/")) return u;
+    return "__invalid__"; // no parece un enlace → avisamos y dejamos la anterior
+  };
+
   const errors: string[] = [];
   let created = 0, updated = 0, deleted = 0, categoriesCreated = 0;
 
@@ -69,7 +86,8 @@ export async function POST(req: NextRequest) {
   const getProd = db.prepare("SELECT id FROM products WHERE id = ?");
   const delProd = db.prepare("DELETE FROM products WHERE id = ?");
   const updProd = db.prepare(
-    "UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, image_url = ?, stock = ?, active = ? WHERE id = ?"
+    // COALESCE: si image_url viene NULL (celda vacía), se mantiene la imagen actual.
+    "UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, image_url = COALESCE(?, image_url), stock = ?, active = ? WHERE id = ?"
   );
   const insProd = db.prepare(
     `INSERT INTO products (category_id, name, description, price, image_url, stock, active, position)
@@ -116,8 +134,13 @@ export async function POST(req: NextRequest) {
       const stockRaw = norm(row["Stock"]);
       const genericStock = stockRaw === "" ? null : Number(stockRaw);
       const active = /^(no|n|0)$/i.test(norm(row["Activo"])) ? 0 : 1;
-      const image = norm(row["Imagen"]);
       const desc = norm(row["Descripcion"]);
+      // Imagen: null = no tocar; "" = borrar; string = usar; "__invalid__" = avisar y no tocar.
+      let image = cleanImageUrl(norm(row["Imagen"]));
+      if (image === "__invalid__") {
+        errors.push(`Fila ${line}: la imagen no parece un enlace válido (debe empezar con http) — se dejó la anterior`);
+        image = null;
+      }
 
       if (id && getProd.get(id)) {
         updProd.run(categoryId, name, desc, price, image, genericStock, active, id);
@@ -125,7 +148,7 @@ export async function POST(req: NextRequest) {
         else updatePBStockAll.run(genericStock, id); // formato viejo: mismo stock a todas
         updated++;
       } else {
-        const newId = Number(insProd.run(categoryId, name, desc, price, image, genericStock, active).lastInsertRowid);
+        const newId = Number(insProd.run(categoryId, name, desc, price, image ?? "", genericStock, active).lastInsertRowid);
         if (perBranchMode) {
           applyBranches(newId, row);
         } else {

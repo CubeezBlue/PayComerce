@@ -21,6 +21,7 @@ export type Branch = {
   position: number;
   lat: number | null;
   lon: number | null;
+  delivery_polygon: string | null; // JSON { points:[[lat,lon]...], cost, min_order } o null
 };
 
 export type DeliveryBand = {

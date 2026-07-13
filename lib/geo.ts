@@ -21,3 +21,30 @@ export function bandForDistance(km: number, bands: DeliveryBand[]): DeliveryBand
   for (const b of sorted) if (km <= b.max_km) return b;
   return null;
 }
+
+// Zona de delivery dibujada a mano.
+export type DeliveryPolygon = { points: [number, number][]; cost: number; min_order: number };
+
+export function parseDeliveryPolygon(json: string | null | undefined): DeliveryPolygon | null {
+  if (!json) return null;
+  try {
+    const p = JSON.parse(json) as DeliveryPolygon;
+    if (Array.isArray(p?.points) && p.points.length >= 3) {
+      return { points: p.points, cost: Number(p.cost) || 0, min_order: Number(p.min_order) || 0 };
+    }
+  } catch { /* JSON inválido → sin polígono */ }
+  return null;
+}
+
+// ¿El punto (lat, lon) cae dentro del polígono? Algoritmo de ray-casting.
+// El anillo es una lista de vértices [lat, lon].
+export function pointInPolygon(lat: number, lon: number, ring: [number, number][]): boolean {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [yi, xi] = ring[i];
+    const [yj, xj] = ring[j];
+    const intersect = yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}

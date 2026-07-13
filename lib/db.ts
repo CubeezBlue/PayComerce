@@ -124,6 +124,8 @@ CREATE TABLE IF NOT EXISTS orders (
   const bcols = (db.prepare("PRAGMA table_info(branches)").all() as { name: string }[]).map((c) => c.name);
   if (!bcols.includes("lat")) db.exec("ALTER TABLE branches ADD COLUMN lat REAL");
   if (!bcols.includes("lon")) db.exec("ALTER TABLE branches ADD COLUMN lon REAL");
+  // Zona de delivery dibujada a mano (polígono). JSON: { points:[[lat,lon]...], cost, min_order }
+  if (!bcols.includes("delivery_polygon")) db.exec("ALTER TABLE branches ADD COLUMN delivery_polygon TEXT");
 }
 
 // Defaults comunes a toda tienda nueva
@@ -416,7 +418,7 @@ export type Product = {
   id: number; category_id: number | null; name: string; description: string;
   price: number; image_url: string; stock: number | null; active: number; position: number;
 };
-export type Branch = { id: number; name: string; address: string; whatsapp_number: string; active: number; position: number; lat: number | null; lon: number | null };
+export type Branch = { id: number; name: string; address: string; whatsapp_number: string; active: number; position: number; lat: number | null; lon: number | null; delivery_polygon: string | null };
 export type BranchStock = { branch_id: number; stock: number | null };
 export type DeliveryZone = { id: number; name: string; cost: number; min_order: number; active: number; position: number };
 export type DeliveryBand = { id: number; branch_id: number; max_km: number; cost: number; min_order: number; position: number };
@@ -493,6 +495,11 @@ export function saveDeliveryBands(branchId: number, bands: { max_km: number; cos
 
 export function setBranchLocation(branchId: number, lat: number | null, lon: number | null, database: DB = db) {
   database.prepare("UPDATE branches SET lat = ?, lon = ? WHERE id = ?").run(lat, lon, branchId);
+}
+
+// Guarda (o borra con null) la zona de delivery dibujada a mano de una sucursal.
+export function setBranchPolygon(branchId: number, polygonJson: string | null, database: DB = db) {
+  database.prepare("UPDATE branches SET delivery_polygon = ? WHERE id = ?").run(polygonJson, branchId);
 }
 
 export function getProductsWithBranches(onlyActive = false, database: DB = db): StoreProduct[] {

@@ -122,6 +122,19 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_product_branches_branch ON product_branches(branch_id);
+CREATE TABLE IF NOT EXISTS cash_closures (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  branch_id INTEGER,
+  day TEXT NOT NULL,
+  opening REAL NOT NULL DEFAULT 0,
+  counted_cash REAL NOT NULL DEFAULT 0,
+  expected_cash REAL NOT NULL DEFAULT 0,
+  total_sales REAL NOT NULL DEFAULT 0,
+  by_method TEXT NOT NULL DEFAULT '{}',
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_cash_closures_day ON cash_closures(day);
 `);
 
   // Migraciones para bases existentes
@@ -612,6 +625,74 @@ export function createOrder(o: NewOrder, database: DB = db): number {
 // Ítems normalizados de un pedido (desde order_items).
 export function getOrderItems(orderId: number, database: DB = db): OrderItem[] {
   return database.prepare("SELECT product_id, name, qty, price FROM order_items WHERE order_id = ? ORDER BY id").all(orderId) as OrderItem[];
+}
+
+// ----- Caja (cierre diario / arqueo) -----
+export type MethodTotals = { count: number; amount: number };
+export type CashReport = {
+  day: string;
+  branchId: number | null;
+  totalSales: number;
+  ordersCount: number;
+  cancelledCount: number;
+  byMethod: { cash: MethodTotals; transfer: MethodTotals; online: MethodTotals };
+};
+export type CashClosure = {
+  id: number; branch_id: number | null; day: string; opening: number; counted_cash: number;
+  expected_cash: number; total_sales: number; by_method: string; notes: string; created_at: string;
+};
+
+// Rango UTC de un día calendario argentino (UTC-3, sin horario de verano): [day 03:00Z, +24h).
+function argDayRange(day: string): { start: string; end: string } {
+  const start = `${day}T03:00:00.000Z`;
+  const end = new Date(new Date(start).getTime() + 24 * 3600 * 1000).toISOString();
+  return { start, end };
+}
+
+// Ventas de un día por medio de pago (efectivo / transferencia / Mercado Pago).
+export function cashReport(day: string, branchId: number | null, database: DB = db): CashReport {
+  const { start, end } = argDayRange(day);
+  const params: Record<string, unknown> = { start, end };
+  let branchClause = "";
+  if (branchId != null) { branchClause = "AND branch_id = @branchId"; params.branchId = branchId; }
+  const rows = database.prepare(
+    `SELECT payment, status, COUNT(*) AS count, COALESCE(SUM(total), 0) AS amount
+     FROM orders WHERE created_at >= @start AND created_at < @end ${branchClause}
+     GROUP BY payment, status`
+  ).all(params) as { payment: string; status: string; count: number; amount: number }[];
+
+  const byMethod = { cash: { count: 0, amount: 0 }, transfer: { count: 0, amount: 0 }, online: { count: 0, amount: 0 } };
+  let totalSales = 0, ordersCount = 0, cancelledCount = 0;
+  for (const r of rows) {
+    if (r.status === "cancelado") { cancelledCount += r.count; continue; }
+    const key = r.payment === "transfer" ? "transfer" : r.payment === "online" ? "online" : "cash";
+    byMethod[key].count += r.count;
+    byMethod[key].amount += r.amount || 0;
+    totalSales += r.amount || 0;
+    ordersCount += r.count;
+  }
+  return { day, branchId, totalSales, ordersCount, cancelledCount, byMethod };
+}
+
+// Guarda un cierre de caja (arqueo): recalcula el reporte y deja el snapshot.
+export function saveCashClosure(
+  input: { branch_id: number | null; day: string; opening: number; counted_cash: number; notes: string },
+  database: DB = db,
+): number {
+  const rep = cashReport(input.day, input.branch_id, database);
+  const opening = Number(input.opening) || 0;
+  const expected = opening + rep.byMethod.cash.amount;
+  const info = database.prepare(
+    `INSERT INTO cash_closures (branch_id, day, opening, counted_cash, expected_cash, total_sales, by_method, notes, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+  ).run(input.branch_id, input.day, opening, Number(input.counted_cash) || 0, expected, rep.totalSales, JSON.stringify(rep.byMethod), input.notes || "", new Date().toISOString());
+  return Number(info.lastInsertRowid);
+}
+
+export function listCashClosures(branchId: number | null, limit = 30, database: DB = db): CashClosure[] {
+  if (branchId != null)
+    return database.prepare("SELECT * FROM cash_closures WHERE branch_id = ? ORDER BY id DESC LIMIT ?").all(branchId, limit) as CashClosure[];
+  return database.prepare("SELECT * FROM cash_closures ORDER BY id DESC LIMIT ?").all(limit) as CashClosure[];
 }
 
 // Error de stock insuficiente al crear un pedido (lista de ítems afectados).

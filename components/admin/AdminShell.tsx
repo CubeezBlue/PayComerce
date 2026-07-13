@@ -7,6 +7,7 @@ import { Feature, hasFeature, AddonKey, hasAddon } from "@/lib/plans";
 const NAV: { href: string; label: string; icon: string; feature?: Feature; addon?: AddonKey }[] = [
   { href: "/admin", label: "Inicio", icon: "📊" },
   { href: "/admin/pedidos", label: "Pedidos", icon: "🧾", feature: "orders_board" },
+  { href: "/admin/caja", label: "Caja", icon: "💰", feature: "dashboard_full" },
   { href: "/admin/productos", label: "Productos", icon: "📦" },
   { href: "/admin/sucursales", label: "Sucursales", icon: "📍", feature: "branches" },
   { href: "/admin/envios", label: "Envíos", icon: "🛵", addon: "delivery" },

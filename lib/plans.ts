@@ -83,7 +83,7 @@ export const ADDONS: { key: AddonKey; name: string; price: number; icon: string;
     ],
   },
   {
-    key: "cocina", name: "Monitor de cocina (KDS)", price: 0, icon: "👨‍🍳", soon: true,
+    key: "cocina", name: "Monitor de cocina (KDS)", price: 12000, icon: "👨‍🍳",
     desc: "Comandas digitales para la cocina en tiempo real.",
     features: [
       "Comandas 100% digitales",

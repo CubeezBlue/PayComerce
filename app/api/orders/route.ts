@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createOrder, getOrders, clearFinalizedOrders, getOrderById, getSettings, saveInvoice, OutOfStockError } from "@/lib/db";
+import { createOrder, getOrders, clearFinalizedOrders, getOrderById, getSettings, saveInvoice, OutOfStockError, createKitchenTicket } from "@/lib/db";
 import { createInvoiceForOrder } from "@/lib/afip";
+import { hasAddon } from "@/lib/plans";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
 import { log } from "@/lib/log";
 
@@ -57,6 +58,15 @@ export async function POST(req: NextRequest) {
     throw e;
   }
   log.info("orders: pedido creado", { slug: slugFromReq(req), orderId: id, total: Number(b.total ?? 0) });
+
+  // Con el adicional de Cocina, cada pedido web genera una comanda para el KDS.
+  if (hasAddon(getSettings(db), "cocina")) {
+    createKitchenTicket({
+      source: "web", ref: `Pedido ${String(b.code ?? id)}`,
+      prep_minutes: Number(getSettings(db).kds_prep_minutes) || 15,
+      items: items.map((i: { name?: unknown; qty?: unknown }) => ({ name: String(i.name ?? ""), qty: Number(i.qty) || 1 })),
+    }, db);
+  }
 
   // Si pidió factura, la emitimos al toque (best-effort; si falla, se puede reintentar del panel)
   let invoice = null;

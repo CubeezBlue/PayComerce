@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { formatPrice } from "@/lib/format";
 
 type Room = { id: number; name: string; position: number };
-type TableT = { id: number; room_id: number | null; name: string; seats: number; pos_x: number; pos_y: number; active: number; position: number; cart_id: number | null; waiter: string; opened_at: string | null; items: number; total: number };
+type TableT = { id: number; room_id: number | null; name: string; seats: number; pos_x: number; pos_y: number; active: number; position: number; cart_id: number | null; waiter: string; opened_at: string | null; items: number; total: number; ready: number };
 type CartItem = { id: number; cart_id: number; product_id: number | null; name: string; qty: number; price: number };
 type Stat = { table_id: number; name: string; orders: number; total: number };
 type Product = { id: number; name: string; price: number; category_id: number | null };
@@ -15,7 +15,7 @@ const PAYMENTS = [
   { key: "online", label: "Mercado Pago", icon: "💳" },
 ];
 
-export default function MesasManager({ currency = "$", products, canConfig }: { currency?: string; products: Product[]; canConfig: boolean }) {
+export default function MesasManager({ currency = "$", products, canConfig, hasCocina = false }: { currency?: string; products: Product[]; canConfig: boolean; hasCocina?: boolean }) {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [tables, setTables] = useState<TableT[]>([]);
   const [stats, setStats] = useState<Stat[]>([]);
@@ -86,6 +86,13 @@ export default function MesasManager({ currency = "$", products, canConfig }: { 
     if (!cartId) return;
     await fetch("/api/mesas/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "move", cart_id: cartId, to_table_id: toTableId }) });
     closePanel(); reload();
+  }
+  async function marchar() {
+    if (!sel) return;
+    const r = await fetch("/api/mesas/cart", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "kitchen", table_id: sel.id }) }).then((x) => x.json());
+    if (r.error) { alert(r.error); return; }
+    if (r.items) setItems(r.items);
+    alert("Comanda enviada a cocina 🍳");
   }
 
   // --- edición del salón ---
@@ -213,6 +220,9 @@ export default function MesasManager({ currency = "$", products, canConfig }: { 
                 {edit && (
                   <button onClick={(e) => { e.stopPropagation(); delTable(t); }} className="absolute -right-2 -top-2 grid h-5 w-5 place-items-center rounded-full bg-red-500 text-xs text-white shadow">×</button>
                 )}
+                {!edit && t.ready > 0 && (
+                  <span title="Comanda lista para entregar" className="absolute -left-2 -top-2 animate-bounce rounded-full bg-green-500 px-1.5 text-xs shadow ring-2 ring-white">🔔</span>
+                )}
               </div>
             );
           })}
@@ -291,6 +301,13 @@ export default function MesasManager({ currency = "$", products, canConfig }: { 
                   {filtered.length === 0 && <p className="px-3 py-2 text-sm text-neutral-400">Sin resultados.</p>}
                 </div>
               </div>
+
+              {/* Acciones */}
+              {cartId && items.length > 0 && hasCocina && (
+                <button onClick={marchar} className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95">
+                  🍳 Marchar a cocina
+                </button>
+              )}
 
               {/* Trasladar */}
               {cartId && items.length > 0 && (

@@ -173,11 +173,33 @@ CREATE TABLE IF NOT EXISTS table_cart_items (
   product_id INTEGER,
   name TEXT NOT NULL DEFAULT '',
   qty INTEGER NOT NULL DEFAULT 1,
-  price REAL NOT NULL DEFAULT 0
+  price REAL NOT NULL DEFAULT 0,
+  sent INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_dining_tables_room ON dining_tables(room_id);
 CREATE INDEX IF NOT EXISTS idx_table_carts_open ON table_carts(table_id, closed);
 CREATE INDEX IF NOT EXISTS idx_table_cart_items_cart ON table_cart_items(cart_id);
+CREATE TABLE IF NOT EXISTS kitchen_tickets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  source TEXT NOT NULL DEFAULT 'mesa',
+  ref TEXT NOT NULL DEFAULT '',
+  table_id INTEGER,
+  waiter TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'pendiente',
+  prep_minutes INTEGER NOT NULL DEFAULT 15,
+  notes TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  ready_at TEXT
+);
+CREATE TABLE IF NOT EXISTS kitchen_ticket_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ticket_id INTEGER NOT NULL REFERENCES kitchen_tickets(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT '',
+  qty INTEGER NOT NULL DEFAULT 1,
+  notes TEXT NOT NULL DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_kitchen_tickets_status ON kitchen_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_kitchen_ticket_items_ticket ON kitchen_ticket_items(ticket_id);
 `);
 
   // Migraciones para bases existentes
@@ -192,6 +214,10 @@ CREATE INDEX IF NOT EXISTS idx_table_cart_items_cart ON table_cart_items(cart_id
   addCol("invoice_demo", "INTEGER NOT NULL DEFAULT 0");
   addCol("table_id", "INTEGER"); // pedido originado en una mesa (servicio de mesas)
   addCol("waiter", "TEXT NOT NULL DEFAULT ''");
+
+  // Migración: flag "enviado a cocina" en los ítems de mesa (KDS).
+  const tciCols = (db.prepare("PRAGMA table_info(table_cart_items)").all() as { name: string }[]).map((c) => c.name);
+  if (!tciCols.includes("sent")) db.exec("ALTER TABLE table_cart_items ADD COLUMN sent INTEGER NOT NULL DEFAULT 0");
 
   // Migración: ubicación de la sucursal (centro de cobertura de delivery)
   const bcols = (db.prepare("PRAGMA table_info(branches)").all() as { name: string }[]).map((c) => c.name);
@@ -256,7 +282,9 @@ function seedDefaults(db: DB, storeName: string, demo: boolean) {
     addon_caja: demo ? "1" : "",
     addon_equipos: demo ? "1" : "",
     addon_mesas: demo ? "1" : "",
+    addon_cocina: demo ? "1" : "",
     addon_domain: "",
+    kds_prep_minutes: "15",
     hours_json: JSON.stringify({
       "0": { open: true, from: "19:00", to: "23:30" }, "1": { open: true, from: "19:00", to: "23:30" },
       "2": { open: true, from: "19:00", to: "23:30" }, "3": { open: true, from: "19:00", to: "23:30" },
@@ -372,7 +400,7 @@ export function listStoresWithInfo(): StoreOverview[] {
     try {
       const sdb = getStoreDb(s.slug);
       const settings = getSettings(sdb);
-      const addonKeys = ["mp", "arca", "delivery", "caja", "equipos", "mesas", "domain"];
+      const addonKeys = ["mp", "arca", "delivery", "caja", "equipos", "mesas", "cocina", "domain"];
       const addons = addonKeys.filter((k) => settings[`addon_${k}`] === "1");
       const products = (sdb.prepare("SELECT COUNT(*) c FROM products").get() as { c: number }).c;
       const orders = (sdb.prepare("SELECT COUNT(*) c FROM orders").get() as { c: number }).c;
@@ -788,7 +816,7 @@ export type TableRoom = { id: number; name: string; position: number };
 export type DiningTable = { id: number; room_id: number | null; name: string; seats: number; pos_x: number; pos_y: number; active: number; position: number };
 export type TableCartItem = { id: number; cart_id: number; product_id: number | null; name: string; qty: number; price: number };
 // Mesa con el estado de su cuenta abierta (para el mapa del salón).
-export type TableWithCart = DiningTable & { cart_id: number | null; waiter: string; opened_at: string | null; items: number; total: number };
+export type TableWithCart = DiningTable & { cart_id: number | null; waiter: string; opened_at: string | null; items: number; total: number; ready: number };
 
 export function listRooms(database: DB = db): TableRoom[] {
   return database.prepare("SELECT * FROM table_rooms ORDER BY position, id").all() as TableRoom[];
@@ -832,7 +860,8 @@ export function getTablesWithCarts(roomId: number | null, database: DB = db): Ta
   return database.prepare(
     `SELECT t.*, c.id AS cart_id, COALESCE(c.waiter, '') AS waiter, c.opened_at AS opened_at,
             COALESCE((SELECT SUM(qty) FROM table_cart_items WHERE cart_id = c.id), 0) AS items,
-            COALESCE((SELECT SUM(qty * price) FROM table_cart_items WHERE cart_id = c.id), 0) AS total
+            COALESCE((SELECT SUM(qty * price) FROM table_cart_items WHERE cart_id = c.id), 0) AS total,
+            (SELECT COUNT(*) FROM kitchen_tickets kt WHERE kt.table_id = t.id AND kt.status = 'listo') AS ready
      FROM dining_tables t
      LEFT JOIN table_carts c ON c.table_id = t.id AND c.closed = 0
      WHERE t.active = 1 ${where ? "AND " + where.slice(6) : ""}
@@ -909,6 +938,67 @@ export function tableSalesStats(database: DB = db): { table_id: number; name: st
      WHERE o.table_id IS NOT NULL AND o.status != 'cancelado'
      GROUP BY o.table_id ORDER BY total DESC`
   ).all() as { table_id: number; name: string; orders: number; total: number }[];
+}
+
+// ----- Cocina (KDS: comandas) -----
+export const KITCHEN_STATUSES = ["pendiente", "preparando", "listo", "entregado"] as const;
+export type KitchenStatus = (typeof KITCHEN_STATUSES)[number];
+export type KitchenTicketItem = { id: number; ticket_id: number; name: string; qty: number; notes: string };
+export type KitchenTicket = {
+  id: number; source: string; ref: string; table_id: number | null; waiter: string;
+  status: string; prep_minutes: number; notes: string; created_at: string; ready_at: string | null;
+  items: KitchenTicketItem[];
+};
+
+export function createKitchenTicket(
+  input: { source: string; ref: string; table_id?: number | null; waiter?: string; prep_minutes?: number; items: { name: string; qty: number; notes?: string }[] },
+  database: DB = db,
+): number | null {
+  const items = (input.items || []).filter((i) => i.name && i.qty > 0);
+  if (!items.length) return null;
+  const info = database.prepare(
+    "INSERT INTO kitchen_tickets (source, ref, table_id, waiter, status, prep_minutes, notes, created_at) VALUES (?, ?, ?, ?, 'pendiente', ?, '', ?)"
+  ).run(input.source, input.ref, input.table_id ?? null, input.waiter ?? "", input.prep_minutes ?? 15, new Date().toISOString());
+  const ticketId = Number(info.lastInsertRowid);
+  const ins = database.prepare("INSERT INTO kitchen_ticket_items (ticket_id, name, qty, notes) VALUES (?, ?, ?, ?)");
+  for (const it of items) ins.run(ticketId, it.name, it.qty, it.notes ?? "");
+  return ticketId;
+}
+
+// "Marchar": envía a cocina los ítems de una mesa que todavía no fueron enviados.
+export function sendTableToKitchen(tableId: number, prepMinutes: number, database: DB = db): number | null {
+  const cart = getOpenCart(tableId, database);
+  if (!cart) return null;
+  const tableName = (database.prepare("SELECT name FROM dining_tables WHERE id = ?").get(tableId) as { name: string } | undefined)?.name ?? String(tableId);
+  const unsent = database.prepare("SELECT id, name, qty FROM table_cart_items WHERE cart_id = ? AND sent = 0").all(cart.id) as { id: number; name: string; qty: number }[];
+  if (!unsent.length) return null;
+  const ticketId = createKitchenTicket(
+    { source: "mesa", ref: `Mesa ${tableName}`, table_id: tableId, waiter: cart.waiter, prep_minutes: prepMinutes, items: unsent.map((u) => ({ name: u.name, qty: u.qty })) },
+    database,
+  );
+  const mark = database.prepare("UPDATE table_cart_items SET sent = 1 WHERE id = ?");
+  for (const u of unsent) mark.run(u.id);
+  return ticketId;
+}
+
+// Comandas activas del tablero (pendiente/preparando/listo). Con includeDelivered trae también entregadas de hoy.
+export function listKitchenTickets(database: DB = db): KitchenTicket[] {
+  const tickets = database.prepare(
+    "SELECT * FROM kitchen_tickets WHERE status != 'entregado' ORDER BY created_at"
+  ).all() as Omit<KitchenTicket, "items">[];
+  const getItems = database.prepare("SELECT * FROM kitchen_ticket_items WHERE ticket_id = ? ORDER BY id");
+  return tickets.map((t) => ({ ...t, items: getItems.all(t.id) as KitchenTicketItem[] }));
+}
+
+export function advanceKitchenTicket(id: number, status: string, database: DB = db) {
+  if (!(KITCHEN_STATUSES as readonly string[]).includes(status)) return;
+  const readyAt = status === "listo" ? new Date().toISOString() : null;
+  database.prepare("UPDATE kitchen_tickets SET status = ?, ready_at = COALESCE(?, ready_at) WHERE id = ?").run(status, readyAt, id);
+}
+
+// Ids de mesas que tienen una comanda LISTA para entregar (aviso al camarero).
+export function readyTableIds(database: DB = db): number[] {
+  return (database.prepare("SELECT DISTINCT table_id FROM kitchen_tickets WHERE status = 'listo' AND table_id IS NOT NULL").all() as { table_id: number }[]).map((r) => r.table_id);
 }
 
 // Error de stock insuficiente al crear un pedido (lista de ítems afectados).

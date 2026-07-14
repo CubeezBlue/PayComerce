@@ -50,7 +50,12 @@ export default async function OwnerPage() {
               <p className="text-xs text-neutral-400">Todas las tiendas de la plataforma</p>
             </div>
           </div>
-          <OwnerLogout />
+          <div className="flex items-center gap-2">
+            <a href="/api/owner/backup" className="rounded-full bg-[#4f46e5] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:brightness-95">
+              ⬇️ Descargar backup
+            </a>
+            <OwnerLogout />
+          </div>
         </div>
 
         {/* Métricas globales */}

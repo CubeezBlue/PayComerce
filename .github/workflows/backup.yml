@@ -1,0 +1,48 @@
+name: Backup diario de datos
+
+# Snapshot consistente de todas las bases SQLite del servidor y copia guardada
+# FUERA de Hostinger (como artifact de GitHub). Corre solo todos los días.
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC = 03:00 Argentina
+  workflow_dispatch: {}
+
+concurrency:
+  group: backup-prod
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Snapshot por SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          APP_PATH: ${{ secrets.APP_PATH }}
+          DATA_DIR: ${{ secrets.DATA_DIR }}
+          BACKUP_DIR: ${{ secrets.BACKUP_DIR }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" | base64 -d > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          SSHOPT="-i ~/.ssh/id_deploy -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes"
+          # Sube el script de backup y lo corre en el server (better-sqlite3 se
+          # resuelve desde el node_modules de la app, por eso corre en APP_PATH).
+          scp $SSHOPT -P "$SSH_PORT" scripts/backup.mjs "$SSH_USER@$SSH_HOST:$APP_PATH/backup.mjs"
+          ssh $SSHOPT -p "$SSH_PORT" "$SSH_USER@$SSH_HOST" \
+            "cd '$APP_PATH' && DATA_DIR='$DATA_DIR' BACKUP_DIR='$BACKUP_DIR' node backup.mjs"
+          # Trae la copia más reciente para guardarla fuera de Hostinger.
+          scp $SSHOPT -P "$SSH_PORT" "$SSH_USER@$SSH_HOST:$BACKUP_DIR/latest.tar.gz" ./paycomerce-latest.tar.gz
+          rm -f ~/.ssh/id_deploy
+
+      - name: Guardar copia fuera de Hostinger
+        uses: actions/upload-artifact@v4
+        with:
+          name: paycomerce-backup-${{ github.run_id }}
+          path: ./paycomerce-latest.tar.gz
+          retention-days: 60

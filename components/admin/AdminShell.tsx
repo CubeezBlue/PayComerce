@@ -8,6 +8,7 @@ import { Permission } from "@/lib/permissions";
 const NAV: { href: string; label: string; icon: string; feature?: Feature; addon?: AddonKey; perm?: Permission; ownerOnly?: boolean }[] = [
   { href: "/admin", label: "Inicio", icon: "📊" },
   { href: "/admin/pedidos", label: "Pedidos", icon: "🧾", feature: "orders_board", perm: "pedidos" },
+  { href: "/admin/mesas", label: "Mesas", icon: "🍽️", addon: "mesas", perm: "mesas" },
   { href: "/admin/caja", label: "Caja", icon: "💰", addon: "caja", perm: "caja" },
   { href: "/admin/productos", label: "Productos", icon: "📦", perm: "productos" },
   { href: "/admin/sucursales", label: "Sucursales", icon: "📍", feature: "branches", perm: "sucursales" },

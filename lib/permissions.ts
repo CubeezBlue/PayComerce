@@ -2,11 +2,12 @@
 // empleado se le asigna un subconjunto. (Sin dependencias de crypto → sirve en
 // el cliente y en el servidor.)
 
-export const PERMISSIONS = ["pedidos", "caja", "productos", "precios", "sucursales", "envios", "config"] as const;
+export const PERMISSIONS = ["pedidos", "mesas", "caja", "productos", "precios", "sucursales", "envios", "config"] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   pedidos: "Pedidos",
+  mesas: "Mesas (salón)",
   caja: "Caja",
   productos: "Productos y stock",
   precios: "Precios y Excel",
@@ -17,6 +18,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 
 export const PERMISSION_HINTS: Record<Permission, string> = {
   pedidos: "Ver y gestionar el tablero de pedidos",
+  mesas: "Atender el salón: abrir mesas, tomar consumos y cobrar",
   caja: "Ver las ventas del día y hacer el arqueo",
   productos: "Alta y edición de productos, categorías y stock",
   precios: "Ajustes de precio por % e importación por Excel",

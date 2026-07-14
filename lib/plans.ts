@@ -72,7 +72,7 @@ export const ADDONS: { key: AddonKey; name: string; price: number; icon: string;
   { key: "caja", name: "Caja y arqueo", price: 5000, icon: "💰", desc: "Cierre diario por medio de pago (efectivo, transferencia, MP) y arqueo." },
   { key: "equipos", name: "Equipo y empleados", price: 15000, icon: "👥", desc: "Usuarios para tus empleados con permisos por sección." },
   {
-    key: "mesas", name: "Servicio de mesas", price: 0, icon: "🍽️", soon: true,
+    key: "mesas", name: "Servicio de mesas", price: 20000, icon: "🍽️",
     desc: "Vendé por mesa y controlá el salón.",
     features: [
       "Ventas en mesas",

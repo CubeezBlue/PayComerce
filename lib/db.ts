@@ -145,6 +145,39 @@ CREATE TABLE IF NOT EXISTS staff (
   created_at TEXT NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_username ON staff(username);
+CREATE TABLE IF NOT EXISTS table_rooms (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL DEFAULT 'Salón',
+  position INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS dining_tables (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  room_id INTEGER REFERENCES table_rooms(id) ON DELETE CASCADE,
+  name TEXT NOT NULL DEFAULT '',
+  seats INTEGER NOT NULL DEFAULT 4,
+  pos_x REAL NOT NULL DEFAULT 20,
+  pos_y REAL NOT NULL DEFAULT 20,
+  active INTEGER NOT NULL DEFAULT 1,
+  position INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS table_carts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  table_id INTEGER NOT NULL REFERENCES dining_tables(id) ON DELETE CASCADE,
+  waiter TEXT NOT NULL DEFAULT '',
+  opened_at TEXT NOT NULL,
+  closed INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS table_cart_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  cart_id INTEGER NOT NULL REFERENCES table_carts(id) ON DELETE CASCADE,
+  product_id INTEGER,
+  name TEXT NOT NULL DEFAULT '',
+  qty INTEGER NOT NULL DEFAULT 1,
+  price REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_dining_tables_room ON dining_tables(room_id);
+CREATE INDEX IF NOT EXISTS idx_table_carts_open ON table_carts(table_id, closed);
+CREATE INDEX IF NOT EXISTS idx_table_cart_items_cart ON table_cart_items(cart_id);
 `);
 
   // Migraciones para bases existentes
@@ -157,6 +190,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_staff_username ON staff(username);
   addCol("invoice_number", "TEXT NOT NULL DEFAULT ''");
   addCol("invoice_type", "TEXT NOT NULL DEFAULT ''");
   addCol("invoice_demo", "INTEGER NOT NULL DEFAULT 0");
+  addCol("table_id", "INTEGER"); // pedido originado en una mesa (servicio de mesas)
+  addCol("waiter", "TEXT NOT NULL DEFAULT ''");
 
   // Migración: ubicación de la sucursal (centro de cobertura de delivery)
   const bcols = (db.prepare("PRAGMA table_info(branches)").all() as { name: string }[]).map((c) => c.name);
@@ -220,6 +255,7 @@ function seedDefaults(db: DB, storeName: string, demo: boolean) {
     addon_delivery: demo ? "1" : "",
     addon_caja: demo ? "1" : "",
     addon_equipos: demo ? "1" : "",
+    addon_mesas: demo ? "1" : "",
     addon_domain: "",
     hours_json: JSON.stringify({
       "0": { open: true, from: "19:00", to: "23:30" }, "1": { open: true, from: "19:00", to: "23:30" },
@@ -336,7 +372,7 @@ export function listStoresWithInfo(): StoreOverview[] {
     try {
       const sdb = getStoreDb(s.slug);
       const settings = getSettings(sdb);
-      const addonKeys = ["mp", "arca", "delivery", "caja", "equipos", "domain"];
+      const addonKeys = ["mp", "arca", "delivery", "caja", "equipos", "mesas", "domain"];
       const addons = addonKeys.filter((k) => settings[`addon_${k}`] === "1");
       const products = (sdb.prepare("SELECT COUNT(*) c FROM products").get() as { c: number }).c;
       const orders = (sdb.prepare("SELECT COUNT(*) c FROM orders").get() as { c: number }).c;
@@ -745,6 +781,134 @@ export function setStaffPassword(id: number, passwordHash: string, database: DB 
 }
 export function deleteStaff(id: number, database: DB = db) {
   database.prepare("DELETE FROM staff WHERE id = ?").run(id);
+}
+
+// ----- Servicio de mesas -----
+export type TableRoom = { id: number; name: string; position: number };
+export type DiningTable = { id: number; room_id: number | null; name: string; seats: number; pos_x: number; pos_y: number; active: number; position: number };
+export type TableCartItem = { id: number; cart_id: number; product_id: number | null; name: string; qty: number; price: number };
+// Mesa con el estado de su cuenta abierta (para el mapa del salón).
+export type TableWithCart = DiningTable & { cart_id: number | null; waiter: string; opened_at: string | null; items: number; total: number };
+
+export function listRooms(database: DB = db): TableRoom[] {
+  return database.prepare("SELECT * FROM table_rooms ORDER BY position, id").all() as TableRoom[];
+}
+export function createRoom(name: string, database: DB = db): number {
+  const info = database.prepare("INSERT INTO table_rooms (name, position) VALUES (?, (SELECT COALESCE(MAX(position), -1) + 1 FROM table_rooms))").run(name || "Salón");
+  return Number(info.lastInsertRowid);
+}
+export function updateRoom(id: number, name: string, database: DB = db) {
+  database.prepare("UPDATE table_rooms SET name = ? WHERE id = ?").run(name, id);
+}
+export function deleteRoom(id: number, database: DB = db) {
+  database.prepare("DELETE FROM table_rooms WHERE id = ?").run(id);
+}
+
+export function createTable(input: { room_id: number | null; name: string; seats?: number; pos_x?: number; pos_y?: number }, database: DB = db): number {
+  const info = database.prepare(
+    "INSERT INTO dining_tables (room_id, name, seats, pos_x, pos_y, position) VALUES (?, ?, ?, ?, ?, (SELECT COALESCE(MAX(position), -1) + 1 FROM dining_tables))"
+  ).run(input.room_id, input.name, input.seats ?? 4, input.pos_x ?? 20, input.pos_y ?? 20);
+  return Number(info.lastInsertRowid);
+}
+export function updateTable(id: number, fields: { name?: string; seats?: number; pos_x?: number; pos_y?: number; room_id?: number | null; active?: boolean }, database: DB = db) {
+  const sets: string[] = [], vals: unknown[] = [];
+  if (fields.name != null) { sets.push("name = ?"); vals.push(fields.name); }
+  if (fields.seats != null) { sets.push("seats = ?"); vals.push(fields.seats); }
+  if (fields.pos_x != null) { sets.push("pos_x = ?"); vals.push(fields.pos_x); }
+  if (fields.pos_y != null) { sets.push("pos_y = ?"); vals.push(fields.pos_y); }
+  if (fields.room_id !== undefined) { sets.push("room_id = ?"); vals.push(fields.room_id); }
+  if (fields.active != null) { sets.push("active = ?"); vals.push(fields.active ? 1 : 0); }
+  if (!sets.length) return;
+  vals.push(id);
+  database.prepare(`UPDATE dining_tables SET ${sets.join(", ")} WHERE id = ?`).run(...vals);
+}
+export function deleteTable(id: number, database: DB = db) {
+  database.prepare("DELETE FROM dining_tables WHERE id = ?").run(id);
+}
+
+// Mesas con el estado de su cuenta abierta (para el mapa del salón).
+export function getTablesWithCarts(roomId: number | null, database: DB = db): TableWithCart[] {
+  const where = roomId != null ? "WHERE t.room_id = @roomId" : "";
+  return database.prepare(
+    `SELECT t.*, c.id AS cart_id, COALESCE(c.waiter, '') AS waiter, c.opened_at AS opened_at,
+            COALESCE((SELECT SUM(qty) FROM table_cart_items WHERE cart_id = c.id), 0) AS items,
+            COALESCE((SELECT SUM(qty * price) FROM table_cart_items WHERE cart_id = c.id), 0) AS total
+     FROM dining_tables t
+     LEFT JOIN table_carts c ON c.table_id = t.id AND c.closed = 0
+     WHERE t.active = 1 ${where ? "AND " + where.slice(6) : ""}
+     ORDER BY t.position, t.id`
+  ).all(roomId != null ? { roomId } : {}) as TableWithCart[];
+}
+
+// Cuenta abierta de una mesa (o null). Si no hay y se pide abrir, la crea.
+export function getOpenCart(tableId: number, database: DB = db): { id: number; waiter: string; opened_at: string } | null {
+  return (database.prepare("SELECT id, waiter, opened_at FROM table_carts WHERE table_id = ? AND closed = 0 ORDER BY id DESC LIMIT 1").get(tableId) as { id: number; waiter: string; opened_at: string } | undefined) ?? null;
+}
+export function openCart(tableId: number, waiter: string, database: DB = db): number {
+  const existing = getOpenCart(tableId, database);
+  if (existing) { if (waiter) database.prepare("UPDATE table_carts SET waiter = ? WHERE id = ?").run(waiter, existing.id); return existing.id; }
+  const info = database.prepare("INSERT INTO table_carts (table_id, waiter, opened_at, closed) VALUES (?, ?, ?, 0)").run(tableId, waiter || "", new Date().toISOString());
+  return Number(info.lastInsertRowid);
+}
+export function setCartWaiter(cartId: number, waiter: string, database: DB = db) {
+  database.prepare("UPDATE table_carts SET waiter = ? WHERE id = ?").run(waiter, cartId);
+}
+export function listCartItems(cartId: number, database: DB = db): TableCartItem[] {
+  return database.prepare("SELECT * FROM table_cart_items WHERE cart_id = ? ORDER BY id").all(cartId) as TableCartItem[];
+}
+export function addCartItem(cartId: number, item: { product_id: number | null; name: string; qty: number; price: number }, database: DB = db) {
+  // Si el mismo producto ya está, sumamos cantidad en vez de duplicar la línea.
+  const existing = item.product_id != null
+    ? database.prepare("SELECT id, qty FROM table_cart_items WHERE cart_id = ? AND product_id = ? LIMIT 1").get(cartId, item.product_id) as { id: number; qty: number } | undefined
+    : undefined;
+  if (existing) database.prepare("UPDATE table_cart_items SET qty = qty + ? WHERE id = ?").run(item.qty, existing.id);
+  else database.prepare("INSERT INTO table_cart_items (cart_id, product_id, name, qty, price) VALUES (?, ?, ?, ?, ?)").run(cartId, item.product_id, item.name, item.qty, item.price);
+}
+export function setCartItemQty(itemId: number, qty: number, database: DB = db) {
+  if (qty <= 0) database.prepare("DELETE FROM table_cart_items WHERE id = ?").run(itemId);
+  else database.prepare("UPDATE table_cart_items SET qty = ? WHERE id = ?").run(qty, itemId);
+}
+// Traslada la cuenta abierta de una mesa a otra (fusiona si la destino ya tiene cuenta).
+export function moveCart(cartId: number, toTableId: number, database: DB = db) {
+  const dest = getOpenCart(toTableId, database);
+  if (!dest) { database.prepare("UPDATE table_carts SET table_id = ? WHERE id = ?").run(toTableId, cartId); return; }
+  if (dest.id === cartId) return;
+  // Fusión: movemos los ítems al carrito destino y cerramos el de origen.
+  database.prepare("UPDATE table_cart_items SET cart_id = ? WHERE cart_id = ?").run(dest.id, cartId);
+  database.prepare("DELETE FROM table_carts WHERE id = ?").run(cartId);
+}
+// Cierra la cuenta cobrando: genera un pedido real (alimenta caja/reportes) y marca la cuenta cerrada.
+export function closeCart(cartId: number, payment: string, database: DB = db): number | null {
+  const cart = database.prepare("SELECT c.id, c.table_id, c.waiter, t.name AS table_name FROM table_carts c JOIN dining_tables t ON t.id = c.table_id WHERE c.id = ? AND c.closed = 0").get(cartId) as { id: number; table_id: number; waiter: string; table_name: string } | undefined;
+  if (!cart) return null;
+  const items = listCartItems(cartId, database);
+  if (!items.length) return null;
+  const pay = ["cash", "transfer", "online"].includes(payment) ? payment : "cash";
+  const subtotal = items.reduce((s, it) => s + it.qty * it.price, 0);
+  const orderId = createOrder({
+    code: `MESA-${cart.table_name}`,
+    branch_id: null, // servicio en salón: sin descuento de stock por sucursal
+    customer_name: `Mesa ${cart.table_name}`,
+    phone: "", address: "", delivery: "pickup", payment: pay,
+    notes: cart.waiter ? `Mesero: ${cart.waiter}` : "",
+    items: items.map((it) => ({ product_id: it.product_id ?? undefined, name: it.name, qty: it.qty, price: it.price })),
+    subtotal, shipping: 0, total: subtotal, invoice: false, cuit: "",
+    payment_status: pay === "cash" ? "offline" : "approved",
+    created_at: new Date().toISOString(),
+  }, database);
+  database.prepare("UPDATE orders SET table_id = ?, waiter = ? WHERE id = ?").run(cart.table_id, cart.waiter, orderId);
+  database.prepare("UPDATE table_carts SET closed = 1 WHERE id = ?").run(cartId);
+  return orderId;
+}
+
+// Estadísticas: mesas con más ventas (de las cuentas ya cobradas).
+export function tableSalesStats(database: DB = db): { table_id: number; name: string; orders: number; total: number }[] {
+  return database.prepare(
+    `SELECT o.table_id AS table_id, COALESCE(t.name, '—') AS name, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS total
+     FROM orders o LEFT JOIN dining_tables t ON t.id = o.table_id
+     WHERE o.table_id IS NOT NULL AND o.status != 'cancelado'
+     GROUP BY o.table_id ORDER BY total DESC`
+  ).all() as { table_id: number; name: string; orders: number; total: number }[];
 }
 
 // Error de stock insuficiente al crear un pedido (lista de ítems afectados).

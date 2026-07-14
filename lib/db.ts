@@ -1012,7 +1012,9 @@ export class OutOfStockError extends Error {
 }
 
 export function getOrders(opts: { branchId?: number | null } = {}, database: DB = db): Order[] {
-  const rows = database.prepare("SELECT * FROM orders ORDER BY id DESC LIMIT 200").all() as (Omit<Order, "items"> & { items: string })[];
+  // El tablero de Pedidos excluye las ventas de mesa (table_id): esas se gestionan
+  // en el salón y en Cocina; solo impactan en la Caja al cobrarse.
+  const rows = database.prepare("SELECT * FROM orders WHERE table_id IS NULL ORDER BY id DESC LIMIT 200").all() as (Omit<Order, "items"> & { items: string })[];
   let list = rows.map((r) => ({ ...r, items: safeItems(r.items) }));
   if (opts.branchId != null) list = list.filter((r) => r.branch_id === opts.branchId);
   return list;

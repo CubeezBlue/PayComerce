@@ -14,12 +14,13 @@ export default function PlanManager({ initial, base = "", subState = "trial", tr
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [subBusy, setSubBusy] = useState(false);
+  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
   const trialDaysLeft = trialEndsAt ? Math.max(0, Math.ceil((Date.parse(trialEndsAt) - Date.now()) / 86400000)) : 0;
 
   async function subscribe() {
     setSubBusy(true);
-    const res = await fetch("/api/subscription/start", { method: "POST" });
+    const res = await fetch("/api/subscription/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ billing }) });
     const data = await res.json().catch(() => ({}));
     setSubBusy(false);
     if (res.ok && data.init_point) window.location.href = data.init_point;
@@ -36,6 +37,18 @@ export default function PlanManager({ initial, base = "", subState = "trial", tr
   const includedAddons = PLANS[plan as keyof typeof PLANS].includedAddons as string[];
   const addonsTotal = ADDONS.filter((a) => addons[a.key] && !a.soon && !includedAddons.includes(a.key)).reduce((s, a) => s + a.price, 0);
   const total = PLANS[plan as keyof typeof PLANS].price + addonsTotal;
+  const annualYear = Math.round(total * 12 * 0.8); // 20% off al pagar anual
+
+  const billingToggle = (
+    <div className="inline-flex rounded-xl bg-white/70 p-1 text-xs ring-1 ring-black/5">
+      <button onClick={() => setBilling("monthly")} className={`rounded-lg px-3 py-1.5 font-semibold ${billing === "monthly" ? "bg-[var(--brand)] text-[var(--brand-text)]" : "text-neutral-500"}`}>
+        Mensual · {formatPrice(total)}/mes
+      </button>
+      <button onClick={() => setBilling("annual")} className={`rounded-lg px-3 py-1.5 font-semibold ${billing === "annual" ? "bg-[var(--brand)] text-[var(--brand-text)]" : "text-neutral-500"}`}>
+        Anual · {formatPrice(annualYear)}/año <span className="text-green-600">-20%</span>
+      </button>
+    </div>
+  );
 
   async function save() {
     setSaving(true);
@@ -62,24 +75,30 @@ export default function PlanManager({ initial, base = "", subState = "trial", tr
             <p className="text-sm text-green-700">Tu plan {PLANS[plan as keyof typeof PLANS].name} está al día. Gracias por usar PayComerce.</p>
           </div>
         ) : subState === "trial" ? (
-          <div className="flex flex-col gap-3 rounded-2xl bg-[var(--brand)]/5 p-5 ring-1 ring-[var(--brand)]/20 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl bg-[var(--brand)]/5 p-5 ring-1 ring-[var(--brand)]/20">
             <div>
               <p className="font-semibold">🎁 Prueba gratis — te quedan {trialDaysLeft} día{trialDaysLeft === 1 ? "" : "s"}</p>
-              <p className="text-sm text-neutral-600">Activá tu suscripción ahora así tu tienda no se corta cuando termine la prueba. Con débito automático mensual; podés cancelar cuando quieras.</p>
+              <p className="text-sm text-neutral-600">Activá tu suscripción ahora así tu tienda no se corta cuando termine la prueba. Débito automático; podés cancelar cuando quieras.</p>
             </div>
-            <button onClick={subscribe} disabled={subBusy} className="shrink-0 rounded-full bg-[#009ee3] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95 disabled:opacity-60">
-              {subBusy ? "Abriendo…" : "Activar suscripción"}
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {billingToggle}
+              <button onClick={subscribe} disabled={subBusy} className="shrink-0 rounded-full bg-[#009ee3] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95 disabled:opacity-60">
+                {subBusy ? "Abriendo…" : `Activar suscripción ${billing === "annual" ? "anual" : "mensual"}`}
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="flex flex-col gap-3 rounded-2xl bg-red-50 p-5 ring-1 ring-red-200 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 rounded-2xl bg-red-50 p-5 ring-1 ring-red-200">
             <div>
               <p className="font-semibold text-red-800">⚠️ Tu tienda está pausada por falta de pago</p>
               <p className="text-sm text-red-700">{subState === "expired" ? "Terminó tu prueba gratis." : "No pudimos cobrar tu suscripción."} Activá el pago para volver a estar online.</p>
             </div>
-            <button onClick={subscribe} disabled={subBusy} className="shrink-0 rounded-full bg-[#009ee3] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95 disabled:opacity-60">
-              {subBusy ? "Abriendo…" : "Suscribirme y reactivar"}
-            </button>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              {billingToggle}
+              <button onClick={subscribe} disabled={subBusy} className="shrink-0 rounded-full bg-[#009ee3] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:brightness-95 disabled:opacity-60">
+                {subBusy ? "Abriendo…" : "Suscribirme y reactivar"}
+              </button>
+            </div>
           </div>
         )
       )}

@@ -117,3 +117,19 @@ export function hasAddon(settings: Record<string, string>, key: AddonKey): boole
 export function productLimit(settings: Record<string, string>): number | null {
   return PLANS[planOf(settings)].productLimit;
 }
+
+// Descuento al pagar la suscripción de forma anual.
+export const ANNUAL_DISCOUNT = 0.2; // 20%
+
+// Total mensual real del comercio: plan + adicionales activos (no incluidos ni "próximamente").
+export function monthlyTotal(settings: Record<string, string>): number {
+  const plan = PLANS[planOf(settings)];
+  const included = plan.includedAddons as string[];
+  const addons = ADDONS.filter((a) => !a.soon && !included.includes(a.key) && settings[`addon_${a.key}`] === "1").reduce((s, a) => s + a.price, 0);
+  return plan.price + addons;
+}
+
+// Total anual con el descuento aplicado (12 meses - 20%).
+export function annualTotal(settings: Record<string, string>): number {
+  return Math.round(monthlyTotal(settings) * 12 * (1 - ANNUAL_DISCOUNT));
+}

@@ -20,7 +20,7 @@ export default function Pricing() {
   const [annual, setAnnual] = useState(false);
 
   function price(monthly: number) {
-    return annual ? Math.round((monthly * 0.85) / 100) * 100 : monthly;
+    return annual ? Math.round((monthly * 0.8) / 100) * 100 : monthly;
   }
 
   return (
@@ -112,7 +112,7 @@ export default function Pricing() {
               <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${annual ? "left-6" : "left-1"}`} />
             </button>
             <span className={annual ? "font-semibold" : "text-neutral-400"}>
-              Anual <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">-15%</span>
+              Anual <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-700">-20%</span>
             </span>
           </div>
 

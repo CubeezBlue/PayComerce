@@ -12,15 +12,17 @@ export function subscriptionConfigured(): boolean {
   return !!platformMpToken();
 }
 
-type PreapprovalInput = { slug: string; planName: string; amount: number; payerEmail: string; backUrl: string; withTrial: boolean };
+type PreapprovalInput = { slug: string; planName: string; amount: number; payerEmail: string; backUrl: string; withTrial: boolean; billing?: "monthly" | "annual" };
 
 // Crea la suscripción (preapproval) y devuelve el init_point donde el comercio
 // carga la tarjeta. Con free_trial de TRIAL_DAYS días si withTrial.
+// billing "annual" cobra cada 12 meses (el monto ya viene con el 20% aplicado).
 export async function createPreapproval(i: PreapprovalInput): Promise<{ id: string; init_point: string } | null> {
   const token = platformMpToken();
   if (!token) return null;
+  const annual = i.billing === "annual";
   const auto_recurring: Record<string, unknown> = {
-    frequency: 1,
+    frequency: annual ? 12 : 1,
     frequency_type: "months",
     transaction_amount: i.amount,
     currency_id: "ARS",
@@ -31,7 +33,7 @@ export async function createPreapproval(i: PreapprovalInput): Promise<{ id: stri
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        reason: `Suscripción PayComerce — ${i.planName}`,
+        reason: `Suscripción PayComerce — ${i.planName} (${annual ? "anual" : "mensual"})`,
         external_reference: i.slug,
         payer_email: i.payerEmail,
         back_url: i.backUrl,

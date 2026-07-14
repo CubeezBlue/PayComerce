@@ -23,6 +23,31 @@ function PermChecks({ value, onChange }: { value: Permission[]; onChange: (v: Pe
   );
 }
 
+// Editor de permisos con estado local: se marca/desmarca y recién se guarda al tocar el botón.
+function StaffPermEditor({ initial, onSave }: { initial: Permission[]; onSave: (v: Permission[]) => Promise<void> | void }) {
+  const [val, setVal] = useState<Permission[]>(initial);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const dirty = [...val].sort().join() !== [...initial].sort().join();
+  async function save() {
+    setSaving(true);
+    await onSave(val);
+    setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 2000);
+  }
+  return (
+    <div className="mt-3">
+      <PermChecks value={val} onChange={(v) => { setVal(v); setSaved(false); }} />
+      <div className="mt-3 flex items-center gap-3">
+        <button onClick={save} disabled={!dirty || saving} className="rounded-full bg-[var(--brand)] px-4 py-1.5 text-sm font-semibold text-[var(--brand-text)] shadow-sm disabled:opacity-40">
+          {saving ? "Guardando…" : "Guardar permisos"}
+        </button>
+        {saved && <span className="text-sm font-medium text-green-600">✅ Guardado</span>}
+        {dirty && !saving && !saved && <span className="text-xs text-amber-600">Cambios sin guardar</span>}
+      </div>
+    </div>
+  );
+}
+
 export default function EquipoManager() {
   const [staff, setStaff] = useState<StaffRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -110,9 +135,7 @@ export default function EquipoManager() {
                 </div>
                 <details className="mt-3">
                   <summary className="cursor-pointer text-sm text-[var(--brand)]">Editar permisos</summary>
-                  <div className="mt-3">
-                    <PermChecks value={p} onChange={(v) => patch(s.id, { permissions: v })} />
-                  </div>
+                  <StaffPermEditor initial={p} onSave={(v) => patch(s.id, { permissions: v })} />
                 </details>
               </div>
             );

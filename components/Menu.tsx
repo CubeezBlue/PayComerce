@@ -32,7 +32,7 @@ export default function Menu({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, multiBranch, branchId]);
 
-  const catName = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
+  const catLabel = useMemo(() => new Map(categories.map((c) => [c.id, `${c.emoji ? c.emoji + " " : ""}${c.name}`])), [categories]);
   const branchName = branches.find((b) => b.id === effectiveBranch)?.name;
 
   const filtered = useMemo(() => {
@@ -91,7 +91,7 @@ export default function Menu({
         <Chip active={activeCat === "all"} onClick={() => setActiveCat("all")}>Todo</Chip>
         {categories.map((c) => (
           <Chip key={c.id} active={activeCat === c.id} onClick={() => setActiveCat(c.id)}>
-            {c.name}
+            {c.emoji ? `${c.emoji} ` : ""}{c.name}
           </Chip>
         ))}
       </div>
@@ -101,14 +101,14 @@ export default function Menu({
       {grouped.map(([key, items]) => (
         <div key={String(key)} className="mb-10">
           <h2 className="mb-4 text-lg font-bold text-[var(--c-title)]">
-            {key === "none" ? "Otros" : catName.get(key as number)}
+            {key === "none" ? "Otros" : catLabel.get(key as number)}
           </h2>
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
             {items.map((p) => (
               <ProductCard
                 key={p.id}
                 product={p}
-                category={p.category_id ? catName.get(p.category_id) : undefined}
+                category={p.category_id ? catLabel.get(p.category_id) : undefined}
                 currency={currency}
                 qty={qtyOf(p.id)}
                 hasOptions={p.optionGroups.length > 0}

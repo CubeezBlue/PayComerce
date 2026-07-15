@@ -1,4 +1,4 @@
-export type Category = { id: number; name: string; position: number };
+export type Category = { id: number; name: string; emoji: string; position: number };
 
 export type Product = {
   id: number;

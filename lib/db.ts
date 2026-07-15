@@ -19,6 +19,7 @@ function applySchema(db: DB) {
 CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
+  emoji TEXT NOT NULL DEFAULT '',
   position INTEGER NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS products (
@@ -218,6 +219,10 @@ CREATE INDEX IF NOT EXISTS idx_kitchen_ticket_items_ticket ON kitchen_ticket_ite
   // Migración: flag "enviado a cocina" en los ítems de mesa (KDS).
   const tciCols = (db.prepare("PRAGMA table_info(table_cart_items)").all() as { name: string }[]).map((c) => c.name);
   if (!tciCols.includes("sent")) db.exec("ALTER TABLE table_cart_items ADD COLUMN sent INTEGER NOT NULL DEFAULT 0");
+
+  // Migración: emoji de categoría.
+  const catCols = (db.prepare("PRAGMA table_info(categories)").all() as { name: string }[]).map((c) => c.name);
+  if (!catCols.includes("emoji")) db.exec("ALTER TABLE categories ADD COLUMN emoji TEXT NOT NULL DEFAULT ''");
 
   // Migración: ubicación de la sucursal (centro de cobertura de delivery)
   const bcols = (db.prepare("PRAGMA table_info(branches)").all() as { name: string }[]).map((c) => c.name);
@@ -531,7 +536,7 @@ export default db;
 // ----------------------------------------------------------------------------
 // Tipos
 // ----------------------------------------------------------------------------
-export type Category = { id: number; name: string; position: number };
+export type Category = { id: number; name: string; emoji: string; position: number };
 export type Product = {
   id: number; category_id: number | null; name: string; description: string;
   price: number; image_url: string; stock: number | null; active: number; position: number;

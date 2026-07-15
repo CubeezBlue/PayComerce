@@ -132,26 +132,34 @@ export default function MesasManager({ currency = "$", products, canConfig, hasC
     reload();
   }
 
-  // Arrastrar una mesa en el mapa (solo en modo edición).
-  function startDrag(e: React.MouseEvent, t: TableT) {
-    if (!edit) return;
-    e.preventDefault();
+  // Interacción con una mesa vía Pointer Events (funciona igual con mouse, dedo y lápiz).
+  // En modo edición: arrastrar reposiciona; tocar sin arrastrar abre el editor.
+  // En modo servicio: tocar abre la cuenta; un desplazamiento (scroll) no la abre.
+  const drag = useRef<{ id: number; sx: number; sy: number; moved: boolean; x: number; y: number; rect: DOMRect } | null>(null);
+
+  function onTablePointerDown(e: React.PointerEvent, t: TableT) {
     const map = mapRef.current; if (!map) return;
     const rect = map.getBoundingClientRect();
-    function onMove(ev: MouseEvent) {
-      const x = Math.max(4, Math.min(rect.width - 76, ev.clientX - rect.left - 36));
-      const y = Math.max(4, Math.min(rect.height - 76, ev.clientY - rect.top - 36));
-      setTables((ts) => ts.map((x2) => (x2.id === t.id ? { ...x2, pos_x: x, pos_y: y } : x2)));
+    drag.current = { id: t.id, sx: e.clientX, sy: e.clientY, moved: false, x: t.pos_x, y: t.pos_y, rect };
+    if (edit) { try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch { /* noop */ } }
+  }
+  function onTablePointerMove(e: React.PointerEvent, t: TableT) {
+    const d = drag.current; if (!d || d.id !== t.id) return;
+    if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) > 6) d.moved = true;
+    if (!edit || !d.moved) return;
+    d.x = Math.max(4, Math.min(d.rect.width - 76, e.clientX - d.rect.left - 36));
+    d.y = Math.max(4, Math.min(d.rect.height - 76, e.clientY - d.rect.top - 36));
+    setTables((ts) => ts.map((z) => (z.id === t.id ? { ...z, pos_x: d.x, pos_y: d.y } : z)));
+  }
+  function onTablePointerUp(e: React.PointerEvent, t: TableT) {
+    const d = drag.current; drag.current = null;
+    if (!d || d.id !== t.id) return;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    if (edit && d.moved) {
+      fetch(`/api/mesas/tables/${t.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pos_x: d.x, pos_y: d.y }) });
+    } else if (!d.moved) {
+      edit ? editTable(t) : openTable(t);
     }
-    function onUp(ev: MouseEvent) {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      const x = Math.max(4, Math.min(rect.width - 76, ev.clientX - rect.left - 36));
-      const y = Math.max(4, Math.min(rect.height - 76, ev.clientY - rect.top - 36));
-      fetch(`/api/mesas/tables/${t.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ pos_x: x, pos_y: y }) });
-    }
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
   }
 
   const cartTotal = items.reduce((s, it) => s + it.qty * it.price, 0);
@@ -202,9 +210,10 @@ export default function MesasManager({ currency = "$", products, canConfig, hasC
             return (
               <div
                 key={t.id}
-                onMouseDown={(e) => startDrag(e, t)}
-                onClick={() => (edit ? editTable(t) : openTable(t))}
-                style={{ left: t.pos_x, top: t.pos_y }}
+                onPointerDown={(e) => onTablePointerDown(e, t)}
+                onPointerMove={(e) => onTablePointerMove(e, t)}
+                onPointerUp={(e) => onTablePointerUp(e, t)}
+                style={{ left: t.pos_x, top: t.pos_y, touchAction: edit ? "none" : "manipulation" }}
                 className={`absolute grid h-[72px] w-[72px] cursor-pointer select-none place-items-center rounded-2xl text-center shadow-sm ring-2 transition ${
                   occupied ? "bg-[var(--brand)] text-[var(--brand-text)] ring-[var(--brand)]" : "bg-white text-neutral-700 ring-neutral-200 hover:ring-neutral-300"
                 } ${edit ? "cursor-move" : ""}`}

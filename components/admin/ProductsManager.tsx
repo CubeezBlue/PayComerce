@@ -35,9 +35,11 @@ export default function ProductsManager({ canVariants = true, productLimit = nul
   // Panel de categorías
   const [showCats, setShowCats] = useState(false);
   const [newCat, setNewCat] = useState("");
+  const [newCatEmoji, setNewCatEmoji] = useState("");
   const [catError, setCatError] = useState("");
   const [editCatId, setEditCatId] = useState<number | null>(null);
   const [editCatName, setEditCatName] = useState("");
+  const [editCatEmoji, setEditCatEmoji] = useState("");
 
   async function load() {
     setLoading(true);
@@ -64,10 +66,10 @@ export default function ProductsManager({ canVariants = true, productLimit = nul
     const res = await fetch("/api/categories", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, emoji: newCatEmoji.trim() }),
     });
     if (!res.ok) { setCatError((await res.json()).error || "Error al crear"); return; }
-    setNewCat("");
+    setNewCat(""); setNewCatEmoji("");
     load();
   }
   async function saveCat(id: number) {
@@ -75,7 +77,7 @@ export default function ProductsManager({ canVariants = true, productLimit = nul
     await fetch(`/api/categories/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: editCatName.trim() }),
+      body: JSON.stringify({ name: editCatName.trim(), emoji: editCatEmoji.trim() }),
     });
     setEditCatId(null);
     load();
@@ -250,14 +252,22 @@ export default function ProductsManager({ canVariants = true, productLimit = nul
           <div className="border-t border-neutral-100 p-5">
             <div className="flex gap-2">
               <input
+                value={newCatEmoji}
+                onChange={(e) => setNewCatEmoji(e.target.value)}
+                placeholder="🍕"
+                className="w-14 rounded-full border border-neutral-200 px-3 py-2 text-center text-lg outline-none focus:border-[var(--brand)]"
+                title="Emoji (opcional)"
+              />
+              <input
                 value={newCat}
                 onChange={(e) => setNewCat(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addCat()}
                 placeholder="Nueva categoría…"
-                className="flex-1 rounded-full border border-neutral-200 px-4 py-2 text-sm outline-none focus:border-[var(--brand)]"
+                className="min-w-0 flex-1 rounded-full border border-neutral-200 px-4 py-2 text-sm outline-none focus:border-[var(--brand)]"
               />
-              <button onClick={addCat} className="rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-[var(--brand-text)]">Agregar</button>
+              <button onClick={addCat} className="shrink-0 rounded-full bg-[var(--brand)] px-5 py-2 text-sm font-semibold text-[var(--brand-text)]">Agregar</button>
             </div>
+            <p className="mt-1.5 text-xs text-neutral-400">Poné un emoji (tocá el 😀 del teclado) para que la categoría se vea más linda en tu tienda.</p>
             {catError && <p className="mt-2 text-sm text-red-500">{catError}</p>}
             <div className="mt-3 flex flex-wrap gap-2">
               {categories.map((c) => (
@@ -265,10 +275,17 @@ export default function ProductsManager({ canVariants = true, productLimit = nul
                   {editCatId === c.id ? (
                     <>
                       <input
+                        value={editCatEmoji}
+                        onChange={(e) => setEditCatEmoji(e.target.value)}
+                        className="w-10 rounded border border-neutral-200 px-1 py-0.5 text-center text-base outline-none focus:border-[var(--brand)]"
+                        placeholder="🙂"
+                        title="Emoji"
+                      />
+                      <input
                         value={editCatName}
                         onChange={(e) => setEditCatName(e.target.value)}
                         onKeyDown={(e) => e.key === "Enter" && saveCat(c.id)}
-                        className="w-28 rounded border border-neutral-200 px-2 py-0.5 text-sm outline-none focus:border-[var(--brand)]"
+                        className="w-24 rounded border border-neutral-200 px-2 py-0.5 text-sm outline-none focus:border-[var(--brand)]"
                         autoFocus
                       />
                       <button onClick={() => saveCat(c.id)} className="rounded-full bg-[var(--brand)] px-2 py-1 text-xs font-semibold text-[var(--brand-text)]">OK</button>
@@ -276,8 +293,8 @@ export default function ProductsManager({ canVariants = true, productLimit = nul
                     </>
                   ) : (
                     <>
-                      <span className="text-sm font-medium">{c.name}</span>
-                      <button onClick={() => { setEditCatId(c.id); setEditCatName(c.name); }} className="grid h-6 w-6 place-items-center rounded-full text-xs text-neutral-500 hover:bg-neutral-200" title="Editar">✏️</button>
+                      <span className="text-sm font-medium">{c.emoji ? `${c.emoji} ` : ""}{c.name}</span>
+                      <button onClick={() => { setEditCatId(c.id); setEditCatName(c.name); setEditCatEmoji(c.emoji || ""); }} className="grid h-6 w-6 place-items-center rounded-full text-xs text-neutral-500 hover:bg-neutral-200" title="Editar">✏️</button>
                       <button onClick={() => deleteCat(c)} className="grid h-6 w-6 place-items-center rounded-full text-xs text-red-500 hover:bg-red-50" title="Borrar">🗑️</button>
                     </>
                   )}

@@ -8,8 +8,9 @@ export async function PUT(req: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await req.json();
   const name = String(body.name ?? "").trim();
+  const emoji = String(body.emoji ?? "").trim().slice(0, 8);
   if (!name) return NextResponse.json({ error: "El nombre es obligatorio" }, { status: 400 });
-  const info = db.prepare("UPDATE categories SET name = ? WHERE id = ?").run(name, Number(id));
+  const info = db.prepare("UPDATE categories SET name = ?, emoji = ? WHERE id = ?").run(name, emoji, Number(id));
   if (info.changes === 0) return NextResponse.json({ error: "Categoría no encontrada" }, { status: 404 });
   return NextResponse.json({ ok: true });
 }

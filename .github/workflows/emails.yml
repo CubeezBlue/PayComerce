@@ -1,0 +1,20 @@
+name: Avisos por email (prueba por vencer)
+
+# Todos los días le pega al endpoint que revisa qué comercios tienen la prueba
+# por vencer o vencida y les manda el email. Protegido por CRON_SECRET.
+on:
+  schedule:
+    - cron: "0 12 * * *" # 12:00 UTC = 09:00 Argentina
+  workflow_dispatch: {}
+
+concurrency:
+  group: emails-cron
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar avisos de prueba
+        run: |
+          curl -fsS "https://paycomerce.com/api/cron/emails" \
+            -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" | tee /dev/stderr

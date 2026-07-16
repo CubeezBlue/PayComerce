@@ -3,6 +3,7 @@ import { listStores, createStore, storeExists, isValidSlug, emailExists, setStor
 import { hashPassword, sessionToken, SESSION_COOKIE, validatePassword, isValidEmail } from "@/lib/auth";
 import { PLANS } from "@/lib/plans";
 import { RUBROS } from "@/lib/rubros";
+import { emailConfigured, sendEmail, welcomeEmailHtml } from "@/lib/email";
 
 export function GET() {
   return NextResponse.json(listStores());
@@ -47,6 +48,11 @@ export async function POST(req: NextRequest) {
     extra.about_features = JSON.stringify(rubro.features);
   }
   if (Object.keys(extra).length) setStoreSettings(slug, extra);
+
+  // Email de bienvenida (best-effort; no bloquea el alta si falla).
+  if (emailConfigured()) {
+    sendEmail(email, "¡Bienvenido a PayComerce! 🎉", welcomeEmailHtml(name, `${req.nextUrl.origin}/t/${slug}/admin`)).catch(() => {});
+  }
 
   const res = NextResponse.json(store, { status: 201 });
   // Auto-login: como acaban de definir su contraseña, los dejamos logueados

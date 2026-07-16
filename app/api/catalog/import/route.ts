@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 // Importación masiva desde Excel. A diferencia de Pedix:
 // - Disponible sin restricciones de plan.
@@ -14,6 +15,8 @@ import { storeDbFromReq } from "@/lib/tenant";
 // columna genérica "Stock" aplicada a todas las sucursales (formato viejo).
 // Columnas: ID, Categoria, Nombre, Descripcion, Precio, [Stock | Stock: <Suc>...], Activo, Imagen, Eliminar
 export async function POST(req: NextRequest) {
+  const gErr = await guardPerm("precios");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const form = await req.formData();
   const file = form.get("file");

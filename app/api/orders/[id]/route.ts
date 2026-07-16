@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateOrderStatus, deleteOrder, ORDER_STATUSES } from "@/lib/db";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: Params) {
+  const gErr = await guardPerm("pedidos");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const { id } = await params;
   const b = await req.json();
   const status = String(b.status ?? "");
@@ -16,6 +19,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
+  const gErr = await guardPerm("pedidos");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const { id } = await params;
   if (!deleteOrder(Number(id), storeDbFromReq(req)))
     return NextResponse.json({ error: "Pedido no encontrado" }, { status: 404 });

@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOrderById, getSettings, saveInvoice } from "@/lib/db";
 import { createInvoiceForOrder } from "@/lib/afip";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 type Params = { params: Promise<{ id: string }> };
 
 // Emite (o re-emite) la factura del pedido en ARCA.
 export async function POST(req: NextRequest, { params }: Params) {
+  const gErr = await guardPerm("pedidos");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const { id } = await params;
   const db = storeDbFromReq(req);
   const order = getOrderById(Number(id), db);

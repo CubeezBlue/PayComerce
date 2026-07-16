@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { setProductBranches, BranchStock } from "@/lib/db";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function PUT(req: NextRequest, { params }: Params) {
+  const gErr = await guardPerm("productos");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const { id } = await params;
   const b = await req.json();
@@ -44,6 +47,8 @@ export async function PUT(req: NextRequest, { params }: Params) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Params) {
+  const gErr = await guardPerm("productos");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const { id } = await params;
   const info = db.prepare("DELETE FROM products WHERE id = ?").run(Number(id));

@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { getCategories, getProductsWithBranches, getBranches } from "@/lib/db";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 // Exporta el catálogo completo a Excel (disponible en todos los planes, sin restricciones).
-export function GET(req: NextRequest) {
+export async function GET(req: NextRequest) {
+  const gErr = await guardPerm("precios");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const categories = new Map(getCategories(db).map((c) => [c.id, c.name]));
   const branches = getBranches(false, db);

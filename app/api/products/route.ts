@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProductsWithBranches, getBranches, setProductBranches, BranchStock, getSettings } from "@/lib/db";
 import { productLimit } from "@/lib/plans";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 export function GET(req: NextRequest) {
   return NextResponse.json(getProductsWithBranches(false, storeDbFromReq(req)));
@@ -18,6 +19,8 @@ function parseBranches(raw: unknown): BranchStock[] | null {
 }
 
 export async function POST(req: NextRequest) {
+  const gErr = await guardPerm("productos");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const b = await req.json();
   const name = String(b.name ?? "").trim();

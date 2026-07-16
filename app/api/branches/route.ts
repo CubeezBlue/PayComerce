@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBranches } from "@/lib/db";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 export function GET(req: NextRequest) {
   return NextResponse.json(getBranches(false, storeDbFromReq(req)));
 }
 
 export async function POST(req: NextRequest) {
+  const gErr = await guardPerm("sucursales");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const b = await req.json();
   const name = String(b.name ?? "").trim();

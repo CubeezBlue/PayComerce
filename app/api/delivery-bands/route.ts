@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDeliveryBands, saveDeliveryBands, setBranchPolygon } from "@/lib/db";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 export function GET(req: NextRequest) {
   return NextResponse.json(getDeliveryBands(storeDbFromReq(req)));
@@ -11,6 +12,8 @@ export function GET(req: NextRequest) {
 //  - "polygon": zona dibujada a mano → branches.delivery_polygon (JSON con cost/min_order).
 // Al guardar una, se limpia la otra para que no queden ambas activas.
 export async function POST(req: NextRequest) {
+  const gErr = await guardPerm("envios");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const b = await req.json();
   const branchId = Number(b.branch_id);

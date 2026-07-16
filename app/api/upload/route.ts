@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
+import { guardLoggedIn } from "@/lib/apiguard";
 
 const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(process.cwd(), "public", "uploads");
 const MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 const ALLOWED = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
 
 export async function POST(req: NextRequest) {
+  const gErr = await guardLoggedIn();
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 401 });
   const form = await req.formData();
   const file = form.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "Falta el archivo" }, { status: 400 });

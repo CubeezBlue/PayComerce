@@ -3,6 +3,7 @@ import { createOrder, getOrders, clearFinalizedOrders, getOrderById, getSettings
 import { createInvoiceForOrder } from "@/lib/afip";
 import { hasAddon } from "@/lib/plans";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 import { log } from "@/lib/log";
 
 export function GET(req: NextRequest) {
@@ -13,7 +14,9 @@ export function GET(req: NextRequest) {
 }
 
 // Vacía el historial (entregados + cancelados)
-export function DELETE(req: NextRequest) {
+export async function DELETE(req: NextRequest) {
+  const gErr = await guardPerm("pedidos");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const removed = clearFinalizedOrders(storeDbFromReq(req));
   return NextResponse.json({ removed });
 }

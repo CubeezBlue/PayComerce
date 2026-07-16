@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storeDbFromReq } from "@/lib/tenant";
+import { guardPerm } from "@/lib/apiguard";
 
 // Aumentos/descuentos de precio por porcentaje, globales o por categoría.
 // Body: { percent: number, categoryId?: number|null, rounding: "none"|"ten"|"hundred" }
 export async function POST(req: NextRequest) {
+  const gErr = await guardPerm("precios");
+  if (gErr) return NextResponse.json({ error: gErr }, { status: 403 });
   const db = storeDbFromReq(req);
   const b = await req.json();
   const percent = Number(b.percent);

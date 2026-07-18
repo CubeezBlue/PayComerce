@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     slug, planName: plan.name, amount, payerEmail: email,
     backUrl: `${origin}/t/${slug}/admin/plan?sub=ok`, withTrial, billing,
   });
-  if (!pre) return NextResponse.json({ error: "No se pudo crear la suscripción en Mercado Pago." }, { status: 502 });
+  if ("error" in pre) return NextResponse.json({ error: `Mercado Pago: ${pre.error}` }, { status: 502 });
 
   setStoreSettings(slug, { mp_subscription_id: pre.id, billing_period: billing });
   return NextResponse.json({ init_point: pre.init_point });

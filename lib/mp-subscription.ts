@@ -28,7 +28,11 @@ export async function createPreapproval(i: PreapprovalInput): Promise<{ id: stri
     transaction_amount: i.amount,
     currency_id: "ARS",
   };
-  if (i.withTrial) auto_recurring.free_trial = { frequency: TRIAL_DAYS, frequency_type: "days" };
+  // Prueba gratis: en un preapproval directo MP no acepta `free_trial` (tira 500);
+  // en su lugar arrancamos el primer cobro en la fecha de fin de prueba (start_date).
+  if (i.withTrial) {
+    auto_recurring.start_date = new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString();
+  }
   try {
     const res = await fetch("https://api.mercadopago.com/preapproval", {
       method: "POST",

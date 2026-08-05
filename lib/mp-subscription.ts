@@ -64,6 +64,30 @@ export async function createPreapproval(i: PreapprovalInput): Promise<{ id: stri
   }
 }
 
+// Actualiza el monto de una suscripción existente (cuando el comercio suma o saca
+// un adicional, o cambia de plan). MP re-cobra el nuevo monto en el próximo ciclo.
+export async function updatePreapprovalAmount(id: string, amount: number): Promise<{ ok: true } | { error: string }> {
+  const token = platformMpToken();
+  if (!token) return { error: "Falta MP_ACCESS_TOKEN" };
+  try {
+    const res = await fetch(`https://api.mercadopago.com/preapproval/${id}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ auto_recurring: { transaction_amount: amount, currency_id: "ARS" } }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const reason = (Array.isArray(data?.cause) && data.cause[0]?.description) || data?.message || `HTTP ${res.status}`;
+      log.error("mp-subscription: no se pudo actualizar el monto", null, { status: res.status, reason, amount });
+      return { error: String(reason).slice(0, 200) };
+    }
+    return { ok: true };
+  } catch (e) {
+    log.error("mp-subscription: excepción actualizando el monto", e);
+    return { error: "No se pudo conectar con Mercado Pago" };
+  }
+}
+
 // Consulta el estado de una suscripción en MP.
 export async function getPreapproval(id: string): Promise<{ status: string; external_reference?: string } | null> {
   const token = platformMpToken();

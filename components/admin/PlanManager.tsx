@@ -56,6 +56,11 @@ export default function PlanManager({ initial, base = "", subState = "trial", tr
     // Los addons "próximamente" nunca se guardan activos.
     for (const a of ADDONS) body[`addon_${a.key}`] = addons[a.key] && !a.soon ? "1" : "";
     await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    // Si ya está suscripta, actualizamos el monto en Mercado Pago (plan + adicionales).
+    if (subState === "active") {
+      const r = await fetch("/api/subscription/sync", { method: "POST" }).then((x) => x.json()).catch(() => ({}));
+      if (r?.error) alert(`No se pudo actualizar tu suscripción: ${r.error}`);
+    }
     setSaving(false);
     setSaved(true);
   }

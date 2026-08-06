@@ -28,11 +28,9 @@ export async function createPreapproval(i: PreapprovalInput): Promise<{ id: stri
     transaction_amount: i.amount,
     currency_id: "ARS",
   };
-  // Prueba gratis: en un preapproval directo MP no acepta `free_trial` (tira 500);
-  // en su lugar arrancamos el primer cobro en la fecha de fin de prueba (start_date).
-  if (i.withTrial) {
-    auto_recurring.start_date = new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString();
-  }
+  // NOTA: MP tira "Internal server error" en un preapproval directo si mandamos
+  // free_trial o start_date. Los omitimos: la suscripción se crea al toque y los
+  // 14 días de prueba los maneja la app (subscription_status='trial' + trial_ends_at).
   try {
     const res = await fetch("https://api.mercadopago.com/preapproval", {
       method: "POST",

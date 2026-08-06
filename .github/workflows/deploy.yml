@@ -37,10 +37,10 @@ jobs:
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
           SSH_PORT: ${{ secrets.SSH_PORT }}
-          # Ruta REAL donde corre la app en Hostinger (~/nodejs). Antes venía de un
-          # secreto que quedó apuntando a una carpeta vieja tras reconfigurar Hostinger,
-          # así que el deploy aterrizaba en un lugar huérfano. Hardcodeada y verificada.
-          APP_PATH: /home/u883925531/nodejs
+          # Ruta REAL desde donde Passenger sirve la app (verificada por SSH con
+          # `find ~ -name server.js`). Antes el deploy caía en ~/nodejs (huérfano),
+          # por eso el build llegaba pero el sitio seguía viejo.
+          APP_PATH: /home/u883925531/domains/paycomerce.com/nodejs
         run: |
           set -e
           mkdir -p ~/.ssh

@@ -2,9 +2,9 @@ name: Build & Deploy a Hostinger
 
 # Compila en Linux (GitHub, recursos de sobra) y sube SOLO el build ya armado por
 # SSH. Hostinger no compila nada y se reinicia solo (touch tmp/restart.txt).
+# Deploy por SSH DESACTIVADO en push: ahora despliega Hostinger de forma nativa
+# (reconectado a GitHub). Se deja solo manual por si alguna vez hace falta.
 on:
-  push:
-    branches: [main]
   workflow_dispatch: {}
 
 concurrency:

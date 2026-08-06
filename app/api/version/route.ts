@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export function GET() {
   return NextResponse.json({
-    build: "2026-08-05-BUILD-CHECK-1",
+    build: "2026-08-06-HOSTINGER-DEPLOY",
     tiene: ["mesas", "cocina", "caja", "equipos", "suscripcion-mensual-anual", "owner-mp-test", "backups"],
     ts: new Date().toISOString(),
   });

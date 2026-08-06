@@ -58,7 +58,7 @@ jobs:
           # hay 404 durante la transición; los chunks viejos quedan huérfanos, inofensivos).
           # Solo necesita tar+ssh en el remoto (no rsync).
           tar czf - -C .next/standalone . | ssh $SSHOPT "$SSH_USER@$SSH_HOST" \
-            "cd '$APP_PATH' && tar xzf - && mkdir -p tmp && touch tmp/restart.txt && (test -f .next/server/app/api/version/route.js && echo VERSION-LANDED-OK || echo VERSION-MISSING) && echo DEPLOY-OK"
+            "cd '$APP_PATH' && tar xzf - && mkdir -p tmp && touch tmp/restart.txt; pkill -f 'domains/paycomerce.com/nodejs/server.js' || true; test -f .next/server/app/api/version/route.js && echo VERSION-LANDED-OK || echo VERSION-MISSING; echo DEPLOY-OK"
           rm -f ~/.ssh/id_deploy
 
       # Fuerza el rolling restart de Passenger: le mandamos tráfico para que cada

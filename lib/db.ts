@@ -396,7 +396,7 @@ export type StoreOverview = StoreInfo & {
   mpConfigured: boolean;
   paused: boolean;      // tienda en pausa (no operativa)
   email: string | null;
-  subState: "trial" | "active" | "expired" | "past_due";
+  subState: "trial" | "active" | "expired" | "past_due" | "pending";
 };
 
 export function listStoresWithInfo(): StoreOverview[] {
@@ -503,7 +503,9 @@ export function createStore(slug: string, name: string, createdAt: string, passw
   setKey.run("terms_version", TERMS_VERSION);
   // Suscripción: arranca en prueba gratis por TRIAL_DAYS días.
   const trialEnds = new Date(new Date(createdAt).getTime() + TRIAL_DAYS * 86400000).toISOString();
-  setKey.run("subscription_status", "trial");
+  // La cuenta nace PENDIENTE: no se puede usar hasta dejar la tarjeta en MP. Al
+  // autorizarse la suscripción, el webhook la pasa a 'active' (arranca la prueba).
+  setKey.run("subscription_status", "pending");
   setKey.run("trial_ends_at", trialEnds);
   return { slug, name, created_at: createdAt };
 }
@@ -514,14 +516,22 @@ export const TRIAL_DAYS = 14;
 
 // Estado de suscripción calculado (considera el vencimiento de la prueba).
 // Devuelve: 'trial' | 'active' | 'expired' (prueba vencida sin pago) | 'paused_billing'.
-export function subscriptionState(settings: Record<string, string>, now = Date.now()): "trial" | "active" | "expired" | "past_due" {
+export function subscriptionState(settings: Record<string, string>, now = Date.now()): "trial" | "active" | "expired" | "past_due" | "pending" {
   const st = settings.subscription_status || "trial";
   if (st === "active") return "active";
   if (st === "past_due") return "past_due";
-  // trial: activa hasta que venza
+  if (st === "pending") return "pending"; // creada, esperando que dejen la tarjeta
+  // legacy 'trial' (cuentas viejas): activa hasta que venza
   const ends = settings.trial_ends_at ? Date.parse(settings.trial_ends_at) : 0;
   if (ends && now > ends) return "expired";
   return "trial";
+}
+
+// ¿La cuenta puede usarse? (suscripción activa, o cuenta vieja aún en prueba).
+// 'demo' está exenta (comercio de ejemplo). pending/past_due/expired → bloqueada.
+export function subscriptionUsable(settings: Record<string, string>, now = Date.now()): boolean {
+  const s = subscriptionState(settings, now);
+  return s === "active" || s === "trial";
 }
 
 // Asegurar que 'demo' esté registrado (para el comercio de ejemplo existente)

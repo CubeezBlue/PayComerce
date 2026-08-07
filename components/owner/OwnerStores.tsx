@@ -16,7 +16,7 @@ export type OwnerStoreRow = {
   lastOrder: string | null;
   mpConfigured: boolean;
   paused: boolean;
-  subState: "trial" | "active" | "expired" | "past_due";
+  subState: "trial" | "active" | "expired" | "past_due" | "pending";
 };
 
 const PLAN_LABEL: Record<string, string> = { emprendedor: "Emprendedor", profesional: "Profesional", empresa: "Empresa" };
@@ -25,6 +25,7 @@ const SUB: Record<string, { t: string; c: string }> = {
   trial: { t: "Prueba", c: "bg-blue-100 text-blue-700" },
   expired: { t: "Prueba vencida", c: "bg-red-100 text-red-700" },
   past_due: { t: "Impaga", c: "bg-red-100 text-red-700" },
+  pending: { t: "Sin activar", c: "bg-amber-100 text-amber-700" },
 };
 
 export default function OwnerStores({ stores }: { stores: OwnerStoreRow[] }) {

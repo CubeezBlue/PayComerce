@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 export function GET() {
   return NextResponse.json({
-    build: "2026-08-06-PAGO-AL-CREAR",
-    tiene: ["mesas", "cocina", "caja", "equipos", "suscripcion-mensual-anual", "owner-mp-test", "backups"],
+    build: "2026-08-07-PAYWALL",
+    tiene: ["mesas", "cocina", "caja", "equipos", "suscripcion-mensual-anual", "owner-mp-test", "backups", "paywall-suscripcion"],
     ts: new Date().toISOString(),
   });
 }

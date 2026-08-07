@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/format";
 
 const ALL_FEATURES: Feature[] = ["variants", "excel", "price_adjust", "orders_board", "dashboard_full", "branches"];
 
-export default function PlanManager({ initial, base = "", subState = "trial", trialEndsAt = "", billingEnabled = false }: { initial: Record<string, string>; base?: string; subState?: "trial" | "active" | "expired" | "past_due"; trialEndsAt?: string; billingEnabled?: boolean }) {
+export default function PlanManager({ initial, base = "", subState = "trial", trialEndsAt = "", billingEnabled = false }: { initial: Record<string, string>; base?: string; subState?: "trial" | "active" | "expired" | "past_due" | "pending"; trialEndsAt?: string; billingEnabled?: boolean }) {
   const [plan, setPlan] = useState(initial.plan || "empresa");
   const [addons, setAddons] = useState<Record<string, boolean>>(
     Object.fromEntries(ADDONS.map((a) => [a.key, initial[`addon_${a.key}`] === "1"]))

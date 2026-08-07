@@ -1,19 +1,20 @@
-import { getSettings, getBranches, getDeliveryBands, subscriptionState } from "@/lib/db";
+import { getSettings, getBranches, getDeliveryBands, subscriptionUsable } from "@/lib/db";
 import SiteShell from "@/components/SiteShell";
 import { hasAddon } from "@/lib/plans";
-import { getRequestStoreDb, getRequestBase } from "@/lib/tenant";
+import { getRequestStoreDb, getRequestBase, getRequestSlug } from "@/lib/tenant";
 
 export const dynamic = "force-dynamic";
 
 export default async function StoreLayout({ children }: { children: React.ReactNode }) {
   const db = await getRequestStoreDb();
   const base = await getRequestBase();
+  const slug = await getRequestSlug();
   const settings = getSettings(db);
   const branches = getBranches(true, db);
 
-  // Suscripción vencida/impaga: se bloquea el storefront (el admin sigue para pagar).
-  const subState = subscriptionState(settings);
-  const subBlocked = subState === "expired" || subState === "past_due";
+  // Sin suscripción activa (pendiente/vencida/impaga) se bloquea el storefront:
+  // no se muestra el catálogo ni se toman pedidos. La 'demo' está exenta.
+  const subBlocked = slug !== "demo" && !subscriptionUsable(settings);
 
   // Tienda en pausa o suscripción vencida: no se muestra el catálogo ni se toman pedidos.
   if (settings.paused === "1" || subBlocked) {

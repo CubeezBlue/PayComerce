@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listStores, createStore, storeExists, isValidSlug, emailExists, setStoreSettings } from "@/lib/db";
+import { listStores, createStore, storeExists, isValidSlug, emailExists, setStoreSettings, getSettings, getStoreDb } from "@/lib/db";
 import { hashPassword, sessionToken, SESSION_COOKIE, validatePassword, isValidEmail } from "@/lib/auth";
-import { PLANS } from "@/lib/plans";
+import { PLANS, monthlyTotal } from "@/lib/plans";
 import { RUBROS } from "@/lib/rubros";
 import { emailConfigured, sendEmail, welcomeEmailHtml } from "@/lib/email";
+import { createPreapproval, subscriptionConfigured } from "@/lib/mp-subscription";
 
 export function GET() {
   return NextResponse.json(listStores());
@@ -54,7 +55,29 @@ export async function POST(req: NextRequest) {
     sendEmail(email, "¡Bienvenido a PayComerce! 🎉", welcomeEmailHtml(name, `${req.nextUrl.origin}/t/${slug}/admin`)).catch(() => {});
   }
 
-  const res = NextResponse.json(store, { status: 201 });
+  // Suscripción al crear la cuenta: mandamos al comercio a dejar la tarjeta en MP.
+  // Con prueba de 14 días → el primer cobro arranca al terminar (start_date). Si MP
+  // no está configurado o falla, seguimos sin bloquear (se suscribe después en Mi plan).
+  let initPoint: string | null = null;
+  if (subscriptionConfigured()) {
+    try {
+      const settings = getSettings(getStoreDb(slug));
+      const testAmount = Number(process.env.SUBSCRIPTION_TEST_AMOUNT) || 0;
+      const amount = testAmount > 0 ? testAmount : monthlyTotal(settings);
+      const trialEnd = settings.trial_ends_at ? Date.parse(settings.trial_ends_at) : NaN;
+      const startDate = Number.isFinite(trialEnd) && trialEnd > Date.now() ? new Date(trialEnd).toISOString() : undefined;
+      const pre = await createPreapproval({
+        slug, planName: PLANS[plan as keyof typeof PLANS].name, amount, payerEmail: email,
+        backUrl: `${req.nextUrl.origin}/suscripcion?tienda=${slug}`, withTrial: true, billing: "monthly", startDate,
+      });
+      if (!("error" in pre)) {
+        setStoreSettings(slug, { mp_subscription_id: pre.id, billing_period: "monthly" });
+        initPoint = pre.init_point;
+      }
+    } catch { /* si falla, seguimos al panel */ }
+  }
+
+  const res = NextResponse.json({ ...store, init_point: initPoint }, { status: 201 });
   // Auto-login: como acaban de definir su contraseña, los dejamos logueados
   // para mandarlos directo a configurar su tienda (token válido solo para este slug).
   if (password) {

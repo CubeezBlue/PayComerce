@@ -29,9 +29,12 @@ export async function POST(req: NextRequest) {
   const origin = req.nextUrl.origin;
   // Con prueba solo si todavía está en trial (no reactivaciones).
   const withTrial = (settings.subscription_status || "trial") === "trial";
+  // Primer cobro al terminar la prueba (deja la tarjeta ahora, se cobra el día 14).
+  const trialEnd = settings.trial_ends_at ? Date.parse(settings.trial_ends_at) : NaN;
+  const startDate = withTrial && Number.isFinite(trialEnd) && trialEnd > Date.now() ? new Date(trialEnd).toISOString() : undefined;
   const pre = await createPreapproval({
     slug, planName: plan.name, amount, payerEmail: email,
-    backUrl: `${origin}/t/${slug}/admin/plan?sub=ok`, withTrial, billing,
+    backUrl: `${origin}/suscripcion?tienda=${slug}`, withTrial, billing, startDate,
   });
   if ("error" in pre) return NextResponse.json({ error: `Mercado Pago: ${pre.error}` }, { status: 502 });
 

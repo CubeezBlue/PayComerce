@@ -13,11 +13,11 @@ export function subscriptionConfigured(): boolean {
   return !!platformMpToken();
 }
 
-type PreapprovalInput = { slug: string; planName: string; amount: number; payerEmail: string; backUrl: string; withTrial: boolean; billing?: "monthly" | "annual" };
+type PreapprovalInput = { slug: string; planName: string; amount: number; payerEmail: string; backUrl: string; withTrial: boolean; billing?: "monthly" | "annual"; startDate?: string };
 
 // Crea la suscripción (preapproval) y devuelve el init_point donde el comercio
-// carga la tarjeta. Con free_trial de TRIAL_DAYS días si withTrial.
-// billing "annual" cobra cada 12 meses (el monto ya viene con el 20% aplicado).
+// carga la tarjeta. billing "annual" cobra cada 12 meses (monto ya con 20% off).
+// startDate difiere el primer cobro (para respetar la prueba gratis).
 export async function createPreapproval(i: PreapprovalInput): Promise<{ id: string; init_point: string } | { error: string }> {
   const token = platformMpToken();
   if (!token) return { error: "Falta MP_ACCESS_TOKEN en el servidor" };
@@ -28,9 +28,9 @@ export async function createPreapproval(i: PreapprovalInput): Promise<{ id: stri
     transaction_amount: i.amount,
     currency_id: "ARS",
   };
-  // NOTA: MP tira "Internal server error" en un preapproval directo si mandamos
-  // free_trial o start_date. Los omitimos: la suscripción se crea al toque y los
-  // 14 días de prueba los maneja la app (subscription_status='trial' + trial_ends_at).
+  // Primer cobro al terminar la prueba (deja la tarjeta ahora, se le cobra el día 14).
+  // OJO: en el sandbox de MP este campo puede tirar 500; en producción funciona.
+  if (i.startDate) auto_recurring.start_date = i.startDate;
   try {
     const res = await fetch("https://api.mercadopago.com/preapproval", {
       method: "POST",

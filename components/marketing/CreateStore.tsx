@@ -115,7 +115,10 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
       }),
     });
     if (!res.ok) { setCreating(false); setError((await res.json()).error || "No se pudo crear"); return; }
-    window.location.href = `/t/${effSlug}/admin/configuracion?bienvenida=1`;
+    const data = await res.json().catch(() => ({}));
+    // Si MP está configurado, la tienda quedó creada y vamos a dejar la tarjeta (prueba 14 días).
+    // Si no, entramos directo a configurar la tienda (la suscripción se hace luego en Mi plan).
+    window.location.href = data.init_point || `/t/${effSlug}/admin/configuracion?bienvenida=1`;
   }
 
   const input = "mt-1 w-full rounded-xl border border-neutral-200 px-4 py-3 outline-none focus:border-[var(--pc)]";
@@ -226,7 +229,7 @@ export default function CreateStore({ baseHost }: { baseHost: string }) {
         {step === "cuenta" && (
           <>
             <h1 className="text-2xl font-black">Tu contraseña</h1>
-            <p className="mt-1 text-neutral-500">Plan <b>{PLANS[plan as keyof typeof PLANS].name}</b> · 14 días gratis. Última cosa y listo.</p>
+            <p className="mt-1 text-neutral-500">Plan <b>{PLANS[plan as keyof typeof PLANS].name}</b> · 14 días gratis. Después dejás tu tarjeta en Mercado Pago — <b>no se te cobra hasta el día 14</b> y cancelás cuando quieras.</p>
             <div className="mt-6 space-y-4">
               <label className="block"><span className="text-sm font-medium text-neutral-700">Contraseña</span>
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={input} autoFocus />

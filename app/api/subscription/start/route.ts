@@ -20,7 +20,11 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}));
   const billing: "monthly" | "annual" = body.billing === "annual" ? "annual" : "monthly";
-  const amount = billing === "annual" ? annualTotal(settings) : monthlyTotal(settings);
+  // Monto de prueba temporal: si SUBSCRIPTION_TEST_AMOUNT está seteada (>0), se cobra
+  // ese monto (para validar en producción con un cargo chico). Quitar la variable
+  // restaura el precio real (plan + adicionales).
+  const testAmount = Number(process.env.SUBSCRIPTION_TEST_AMOUNT) || 0;
+  const amount = testAmount > 0 ? testAmount : (billing === "annual" ? annualTotal(settings) : monthlyTotal(settings));
 
   const origin = req.nextUrl.origin;
   // Con prueba solo si todavía está en trial (no reactivaciones).

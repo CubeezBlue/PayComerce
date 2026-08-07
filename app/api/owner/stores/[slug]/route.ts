@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { setStorePaused, deleteStore } from "@/lib/db";
+import { setStorePaused, deleteStore, setStoreSettings } from "@/lib/db";
 import { checkOwner, OWNER_COOKIE } from "@/lib/auth";
 
 async function requireOwner(): Promise<boolean> {
@@ -10,12 +10,14 @@ async function requireOwner(): Promise<boolean> {
 
 type Params = { params: Promise<{ slug: string }> };
 
-// Pausar / reactivar una tienda (dueño).
+// Pausar/reactivar o marcar como cuenta cortesía (gratis, exenta del paywall) — dueño.
 export async function PATCH(req: NextRequest, { params }: Params) {
   if (!(await requireOwner())) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   const { slug } = await params;
   const b = await req.json();
-  setStorePaused(slug, !!b.paused);
+  // Cuenta gratis: 'comp' no vence ni se cobra. Al quitarla vuelve a 'pending' (requiere pago).
+  if ("comp" in b) setStoreSettings(slug, { subscription_status: b.comp ? "comp" : "pending" });
+  if ("paused" in b) setStorePaused(slug, !!b.paused);
   return NextResponse.json({ ok: true });
 }
 

@@ -16,7 +16,7 @@ export type OwnerStoreRow = {
   lastOrder: string | null;
   mpConfigured: boolean;
   paused: boolean;
-  subState: "trial" | "active" | "expired" | "past_due" | "pending";
+  subState: "trial" | "active" | "expired" | "past_due" | "pending" | "comp";
 };
 
 const PLAN_LABEL: Record<string, string> = { emprendedor: "Emprendedor", profesional: "Profesional", empresa: "Empresa" };
@@ -26,6 +26,7 @@ const SUB: Record<string, { t: string; c: string }> = {
   expired: { t: "Prueba vencida", c: "bg-red-100 text-red-700" },
   past_due: { t: "Impaga", c: "bg-red-100 text-red-700" },
   pending: { t: "Sin activar", c: "bg-amber-100 text-amber-700" },
+  comp: { t: "Gratis", c: "bg-violet-100 text-violet-700" },
 };
 
 export default function OwnerStores({ stores }: { stores: OwnerStoreRow[] }) {
@@ -37,6 +38,18 @@ export default function OwnerStores({ stores }: { stores: OwnerStoreRow[] }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ paused: !s.paused }),
+    });
+    window.location.reload();
+  }
+
+  async function toggleComp(s: OwnerStoreRow) {
+    const free = s.subState === "comp";
+    if (!free && !confirm(`¿Darle cuenta GRATIS a "${s.name}"?\n\nVa a poder usar todo sin pagar, sin límite de tiempo.`)) return;
+    setBusy(s.slug);
+    await fetch(`/api/owner/stores/${s.slug}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ comp: !free }),
     });
     window.location.reload();
   }
@@ -97,6 +110,11 @@ export default function OwnerStores({ stores }: { stores: OwnerStoreRow[] }) {
                     <button onClick={() => togglePause(s)} disabled={busy === s.slug} className="text-amber-600 hover:underline">
                       {s.paused ? "Reactivar" : "Pausar"}
                     </button>
+                    {s.slug !== "demo" && (
+                      <button onClick={() => toggleComp(s)} disabled={busy === s.slug} className="text-violet-600 hover:underline">
+                        {s.subState === "comp" ? "Quitar gratis" : "Cuenta gratis"}
+                      </button>
+                    )}
                     {s.slug !== "demo" && (
                       <button onClick={() => remove(s)} disabled={busy === s.slug} className="text-red-500 hover:underline">Eliminar</button>
                     )}

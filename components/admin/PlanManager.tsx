@@ -6,7 +6,7 @@ import { formatPrice } from "@/lib/format";
 
 const ALL_FEATURES: Feature[] = ["variants", "excel", "price_adjust", "orders_board", "dashboard_full", "branches"];
 
-export default function PlanManager({ initial, base = "", subState = "trial", trialEndsAt = "", billingEnabled = false }: { initial: Record<string, string>; base?: string; subState?: "trial" | "active" | "expired" | "past_due" | "pending"; trialEndsAt?: string; billingEnabled?: boolean }) {
+export default function PlanManager({ initial, base = "", subState = "trial", trialEndsAt = "", billingEnabled = false }: { initial: Record<string, string>; base?: string; subState?: "trial" | "active" | "expired" | "past_due" | "pending" | "comp"; trialEndsAt?: string; billingEnabled?: boolean }) {
   const [plan, setPlan] = useState(initial.plan || "empresa");
   const [addons, setAddons] = useState<Record<string, boolean>>(
     Object.fromEntries(ADDONS.map((a) => [a.key, initial[`addon_${a.key}`] === "1"]))
@@ -73,7 +73,12 @@ export default function PlanManager({ initial, base = "", subState = "trial", tr
       </div>
 
       {/* Estado de suscripción */}
-      {billingEnabled && (
+      {subState === "comp" ? (
+        <div className="rounded-2xl bg-violet-50 p-5 ring-1 ring-violet-200">
+          <p className="font-semibold text-violet-800">🎁 Cuenta cortesía</p>
+          <p className="text-sm text-violet-700">Tenés acceso completo gratis, sin límite de tiempo. No se te cobra nada.</p>
+        </div>
+      ) : billingEnabled && (
         subState === "active" ? (
           <div className="rounded-2xl bg-green-50 p-5 ring-1 ring-green-200">
             <p className="font-semibold text-green-800">✅ Suscripción activa</p>

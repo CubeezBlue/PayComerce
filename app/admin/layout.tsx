@@ -33,7 +33,7 @@ export default async function AdminRootLayout({ children }: { children: React.Re
     }
     if (!subscriptionUsable(settings)) {
       const st = subscriptionState(settings);
-      return <SubscriptionPaywall base={base} state={st === "active" || st === "trial" ? "pending" : st} storeName={settings.store_name || ""} />;
+      return <SubscriptionPaywall base={base} state={st === "past_due" || st === "expired" ? st : "pending"} storeName={settings.store_name || ""} />;
     }
   }
   const brand = settings.color_accent || settings.brand_color || "#EA580C";

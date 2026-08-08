@@ -5,6 +5,7 @@ import { PLANS, monthlyTotal } from "@/lib/plans";
 import { RUBROS } from "@/lib/rubros";
 import { emailConfigured, sendEmail, welcomeEmailHtml } from "@/lib/email";
 import { createPreapproval, subscriptionConfigured } from "@/lib/mp-subscription";
+import { publicOrigin } from "@/lib/url";
 
 export function GET() {
   return NextResponse.json(listStores());
@@ -50,9 +51,11 @@ export async function POST(req: NextRequest) {
   }
   if (Object.keys(extra).length) setStoreSettings(slug, extra);
 
+  const origin = publicOrigin(req);
+
   // Email de bienvenida (best-effort; no bloquea el alta si falla).
   if (emailConfigured()) {
-    sendEmail(email, "¡Bienvenido a PayComerce! 🎉", welcomeEmailHtml(name, `${req.nextUrl.origin}/t/${slug}/admin`)).catch(() => {});
+    sendEmail(email, "¡Bienvenido a PayComerce! 🎉", welcomeEmailHtml(name, `${origin}/t/${slug}/admin`)).catch(() => {});
   }
 
   // Suscripción al crear la cuenta: mandamos al comercio a dejar la tarjeta en MP.
@@ -68,7 +71,7 @@ export async function POST(req: NextRequest) {
       const startDate = Number.isFinite(trialEnd) && trialEnd > Date.now() ? new Date(trialEnd).toISOString() : undefined;
       const pre = await createPreapproval({
         slug, planName: PLANS[plan as keyof typeof PLANS].name, amount, payerEmail: email,
-        backUrl: `${req.nextUrl.origin}/suscripcion?tienda=${slug}`, withTrial: true, billing: "monthly", startDate,
+        backUrl: `${origin}/suscripcion/${slug}`, withTrial: true, billing: "monthly", startDate,
       });
       if (!("error" in pre)) {
         setStoreSettings(slug, { mp_subscription_id: pre.id, billing_period: "monthly" });

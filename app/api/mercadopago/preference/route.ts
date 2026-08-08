@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSettings, createOrder, deleteOrder, OutOfStockError } from "@/lib/db";
 import { storeDbFromReq, slugFromReq } from "@/lib/tenant";
+import { publicOrigin } from "@/lib/url";
 
 // Crea la preferencia de pago en Mercado Pago (Checkout Pro) y guarda el pedido.
 // Devuelve el init_point al que redirige el cliente para pagar.
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
   }
 
   // 2) Armar la preferencia
-  const origin = req.nextUrl.origin;
+  const origin = publicOrigin(req);
   const mpItems = items.map((i: { name?: unknown; qty?: unknown; price?: unknown }) => ({
     title: String(i.name ?? "Producto"),
     quantity: Number(i.qty ?? 1),

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export function GET() {
   return NextResponse.json({
-    build: "2026-08-07-PAYWALL-CUENTA-GRATIS",
+    build: "2026-08-07-BACKURL-DOMINIO-REAL",
     tiene: ["mesas", "cocina", "caja", "equipos", "suscripcion-mensual-anual", "owner-mp-test", "backups", "paywall-suscripcion", "cuenta-cortesia"],
     ts: new Date().toISOString(),
   });

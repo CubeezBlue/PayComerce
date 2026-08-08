@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { slugFromReq } from "@/lib/tenant";
 import { checkSession, SESSION_COOKIE, signOauthState } from "@/lib/auth";
 import { mpOauthConfigured, mpAuthorizeUrl } from "@/lib/mp";
+import { publicOrigin } from "@/lib/url";
 
 // Inicia la conexión con Mercado Pago: manda al comercio a autorizar en MP.
 export function GET(req: NextRequest) {
@@ -12,7 +13,7 @@ export function GET(req: NextRequest) {
   if (!mpOauthConfigured())
     return NextResponse.redirect(new URL(`${base}/admin/configuracion?mp=noconfig`, req.url));
 
-  const redirectUri = `${req.nextUrl.origin}/api/mercadopago/oauth/callback`;
+  const redirectUri = `${publicOrigin(req)}/api/mercadopago/oauth/callback`;
   const state = signOauthState(slug);
   return NextResponse.redirect(mpAuthorizeUrl(state, redirectUri));
 }

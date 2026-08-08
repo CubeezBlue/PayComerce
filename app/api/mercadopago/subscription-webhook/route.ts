@@ -3,6 +3,7 @@ import { getPreapproval } from "@/lib/mp-subscription";
 import { setStoreSettings, storeExists, getStoreDb, getSettings } from "@/lib/db";
 import { PLANS, planOf } from "@/lib/plans";
 import { sendEmail, subscriptionActiveEmailHtml, paymentFailedEmailHtml } from "@/lib/email";
+import { publicOrigin } from "@/lib/url";
 
 // Webhook de MP para la suscripción del SaaS. MP avisa cambios de la preapproval;
 // consultamos el estado real y actualizamos la tienda.
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
     const prev = settings.subscription_status || "trial";
     const email = settings.admin_email?.trim();
     const storeName = settings.store_name || "tu tienda";
-    const planLink = `${req.nextUrl.origin}/t/${slug}/admin/plan`;
+    const planLink = `${publicOrigin(req)}/t/${slug}/admin/plan`;
 
     const status = pre.status; // pending | authorized | paused | cancelled
     if (status === "authorized" && prev !== "active") {

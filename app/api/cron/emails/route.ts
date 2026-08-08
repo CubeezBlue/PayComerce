@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listStores, getStoreDb, getSettings, setStoreSettings, subscriptionState } from "@/lib/db";
 import { emailConfigured, sendEmail, trialEndingEmailHtml, trialExpiredEmailHtml } from "@/lib/email";
+import { publicOrigin } from "@/lib/url";
 
 // Tarea programada (la dispara un workflow diario). Avisa por email a los
 // comercios cuya prueba está por vencer o ya venció. Protegida por CRON_SECRET.
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
       const email = settings.admin_email?.trim();
       if (!email) continue;
       const storeName = settings.store_name || s.name;
-      const planLink = `${req.nextUrl.origin}/t/${s.slug}/admin/plan`;
+      const planLink = `${publicOrigin(req)}/t/${s.slug}/admin/plan`;
       const state = subscriptionState(settings, now);
 
       if (state === "trial" && settings.trial_ends_at) {

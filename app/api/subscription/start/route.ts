@@ -4,6 +4,7 @@ import { checkSession, SESSION_COOKIE } from "@/lib/auth";
 import { getSettings, setStoreSettings } from "@/lib/db";
 import { PLANS, PlanId, monthlyTotal, annualTotal } from "@/lib/plans";
 import { createPreapproval, subscriptionConfigured } from "@/lib/mp-subscription";
+import { publicOrigin } from "@/lib/url";
 
 // Inicia la suscripción del comercio (plan + adicionales). Devuelve el init_point de MP.
 export async function POST(req: NextRequest) {
@@ -26,15 +27,16 @@ export async function POST(req: NextRequest) {
   const testAmount = Number(process.env.SUBSCRIPTION_TEST_AMOUNT) || 0;
   const amount = testAmount > 0 ? testAmount : (billing === "annual" ? annualTotal(settings) : monthlyTotal(settings));
 
-  const origin = req.nextUrl.origin;
-  // Con prueba solo si todavía está en trial (no reactivaciones).
-  const withTrial = (settings.subscription_status || "trial") === "trial";
+  const origin = publicOrigin(req);
+  // Con prueba en el alta (pending) o cuentas viejas en trial; no en reactivaciones.
+  const st = settings.subscription_status || "trial";
+  const withTrial = st === "pending" || st === "trial";
   // Primer cobro al terminar la prueba (deja la tarjeta ahora, se cobra el día 14).
   const trialEnd = settings.trial_ends_at ? Date.parse(settings.trial_ends_at) : NaN;
   const startDate = withTrial && Number.isFinite(trialEnd) && trialEnd > Date.now() ? new Date(trialEnd).toISOString() : undefined;
   const pre = await createPreapproval({
     slug, planName: plan.name, amount, payerEmail: email,
-    backUrl: `${origin}/suscripcion?tienda=${slug}`, withTrial, billing, startDate,
+    backUrl: `${origin}/suscripcion/${slug}`, withTrial, billing, startDate,
   });
   if ("error" in pre) return NextResponse.json({ error: `Mercado Pago: ${pre.error}` }, { status: 502 });
 

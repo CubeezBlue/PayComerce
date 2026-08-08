@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { readOauthState } from "@/lib/auth";
 import { mpExchangeCode } from "@/lib/mp";
 import { setStoreSettings, storeExists } from "@/lib/db";
+import { publicOrigin } from "@/lib/url";
 
 // MP redirige acá con ?code&state. Canjeamos el code por el token del comercio
 // y lo guardamos en su tienda. Luego volvemos a Configuración.
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const base = `/t/${slug}`;
   if (!code) return NextResponse.redirect(new URL(`${base}/admin/configuracion?mp=cancel`, req.url));
 
-  const redirectUri = `${req.nextUrl.origin}/api/mercadopago/oauth/callback`;
+  const redirectUri = `${publicOrigin(req)}/api/mercadopago/oauth/callback`;
   const tok = await mpExchangeCode(code, redirectUri);
   if (!tok?.access_token)
     return NextResponse.redirect(new URL(`${base}/admin/configuracion?mp=error`, req.url));

@@ -3,6 +3,7 @@ import { getStoreByEmail, getStoreDb, getSettings } from "@/lib/db";
 import { makeResetToken } from "@/lib/auth";
 import { sendEmail, resetEmailHtml, emailConfigured } from "@/lib/email";
 import { log } from "@/lib/log";
+import { publicOrigin } from "@/lib/url";
 
 // Pide recuperar contraseña: si el email existe, envía un link con token.
 // Responde siempre igual para no revelar qué emails están registrados.
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
   }
 
   const token = makeResetToken(store.slug, Date.now());
-  const origin = req.nextUrl.origin;
+  const origin = publicOrigin(req);
   const link = `${origin}/restablecer?token=${encodeURIComponent(token)}`;
   const storeName = getSettings(getStoreDb(store.slug)).store_name || "tu tienda";
   try {
